@@ -1,6 +1,6 @@
 /// A permission is defined as the following structure
 ///
-/// <namespace>.<permission>
+/// namespace.permission
 ///
 /// If a user has the * permission, they will have all permissions in that namespace
 /// If namespace is global then only the permission is checked. E.g. global.view allows using the view permission in all namespaces
@@ -12,8 +12,34 @@
 /// Negators work to negate a specific permission *excluding the global.* permission* (for now, until this gets a bit more refined to not need a global.* special case)
 ///
 /// Anything past the <namespace>.<permission> may be ignored or indexed at the discretion of the implementation and is *undefined behaviour*
+///
+/// # Permission Overrides
+/// 
+/// Permission overrides are a special case of permissions that are used to override permissions for a specific user. 
+/// They use the same structure and follow the same rules as a normal permission, but are stored separately from the normal permissions.
+
+
+
+/// A set of permissions for a staff member
+/// 
+/// This is a list of permissions that the user has
+pub struct StaffPermissions {
+    pub perms: Vec<String>,
+    pub perm_overrides: Vec<String>,
+}
+
+impl StaffPermissions {
+    /// Note that this just extends the permissions at this time but may be extended in the future
+    pub fn resolve(&self) -> Vec<String> {
+        let mut perms = self.perms.clone();
+        perms.extend(self.perm_overrides.clone());
+        perms
+    }
+}
 
 /// Check if the user has a permission given a set of user permissions and a permission to check for
+/// 
+/// This assumes a resolved set of permissions
 pub fn has_perm(perms: &Vec<String>, perm: &str) -> bool {
     let mut perm_split = perm.split('.').collect::<Vec<&str>>();
 
