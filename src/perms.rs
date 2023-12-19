@@ -1,3 +1,7 @@
+use std::hash::{Hash, Hasher};
+
+use indexmap::IndexMap;
+
 /// A permission is defined as the following structure
 ///
 /// namespace.permission
@@ -17,23 +21,141 @@
 /// 
 /// Permission overrides are a special case of permissions that are used to override permissions for a specific user. 
 /// They use the same structure and follow the same rules as a normal permission, but are stored separately from the normal permissions.
+///
+/// # Clearing Permissions
+/// 
+/// In some cases, it may desired to start from a fresh slate of permissions. To do this, add a '@clear' permission to the namespace. All permissions after this on that namespace will be cleared
+/// 
+/// TODO: Use enums for storing permissions instead of strings by serializing and deserializing them to strings when needed
 
+//
 
+#[derive(Clone, Debug)]
+/// A PartialStaffPosition is a partial representation of a staff position
+/// for the purposes of permission resolution
+pub struct PartialStaffPosition {
+    /// The id of the position
+    pub id: String,
+    /// The index of the permission. Lower means higher in the list of hierarchy
+    pub index: i32,
+    /// The preset permissions of this position
+    pub perms: Vec<String>,
+}
+
+impl Hash for PartialStaffPosition {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
 
 /// A set of permissions for a staff member
 /// 
 /// This is a list of permissions that the user has
 pub struct StaffPermissions {
-    pub perms: Vec<String>,
+    pub user_positions: Vec<PartialStaffPosition>,
     pub perm_overrides: Vec<String>,
 }
 
 impl StaffPermissions {
-    /// Note that this just extends the permissions at this time but may be extended in the future
     pub fn resolve(&self) -> Vec<String> {
-        let mut perms = self.perms.clone();
-        perms.extend(self.perm_overrides.clone());
-        perms
+        let mut applied_perms_val = IndexMap::new();
+
+        // Add the permission overrides as index 0
+        for perm in self.perm_overrides.iter() {
+            applied_perms_val.insert(perm.clone(), 0);
+        }
+
+        // Sort the positions by index in descending order
+        let mut user_positions = self.user_positions.clone();
+
+        user_positions.sort_by(|a, b| b.index.cmp(&a.index));
+
+        for pos in user_positions.iter() {
+            for perm in pos.perms.iter() {
+                if perm.ends_with(".@clear") {
+                    // Split permission by namespace
+                    let mut perm_split = perm.split('.').collect::<Vec<&str>>();
+
+                    if perm_split.len() < 2 {
+                        // Then assume its a global permission on the namespace
+                        perm_split = vec!["global", "@clear"];
+                    }
+
+                    let perm_namespace = perm_split[0];
+
+                    if perm_namespace == "global" {
+                        // Clear all perms
+                        applied_perms_val.clear();
+                        continue;
+                    }
+
+                    // Clear all perms with this namespace
+                    let mut to_remove = Vec::new();
+                    for (key, _) in applied_perms_val.iter() {
+                        let mut key_split = key.split('.').collect::<Vec<&str>>();
+
+                        if key_split.len() < 2 {
+                            // Then assume its a global permission on the namespace
+                            key_split = vec!["global", "*"];
+                        }
+
+                        let key_namespace = key_split[0];
+
+                        if key_namespace == perm_namespace {
+                            to_remove.push(key.clone());
+                        }
+                    }
+
+                    // Remove here to avoid immutable borrow
+                    for key in to_remove {
+                        applied_perms_val.remove(&key);
+                    }
+
+                    continue;
+                }
+
+                if perm.starts_with('~') {
+                    // Check what gave the permission. We *know* its sorted so we don't need to do anything but remove if it exists
+                    if applied_perms_val.get(perm.trim_start_matches('~')).is_some() {
+                        // Remove old permission
+                        applied_perms_val.remove(perm.trim_start_matches('~'));
+
+                        // Add the negator
+                        applied_perms_val.insert(perm.clone(), pos.index);
+                    } else {
+                        if applied_perms_val.get(perm).is_some() {
+                            // Case 3: The negator is already applied, so we can ignore it
+                            continue;
+                        }
+
+                        // Then we can freely add the permission
+                        applied_perms_val.insert(perm.clone(), pos.index);            
+                    }
+                } else {
+                    // If its not a negator, first check if there's a negator
+                    if applied_perms_val.get(&format!("~{}", perm)).is_some() {
+                        // Remove the negator
+                        applied_perms_val.remove(&format!("~{}", perm));
+                        // Add the permission
+                        applied_perms_val.insert(perm.clone(), pos.index);
+                    } else {
+                        if applied_perms_val.get(perm).is_some() {
+                            // Case 3: The permission is already applied, so we can ignore it
+                            continue;
+                        }
+
+                        // Then we can freely add the permission
+                        applied_perms_val.insert(perm.clone(), pos.index);            
+                    }
+                }
+            }
+        }
+        
+        let applied_perms = applied_perms_val.keys().cloned().collect::<Vec<String>>();
+
+        println!("Applied perms: {:?} with hashmap: {:?}", applied_perms, applied_perms_val);
+
+        applied_perms
     }
 }
 
@@ -141,5 +263,144 @@ mod tests {
             &vec!["~apps.test".to_string(), "global.*".to_string()],
             "apps.test"
         )); // Test for global.* handling as a wildcard 'return true'
+    }
+
+    #[test]
+    fn test_resolve_perms() {
+        // Test for basic resolution of overrides
+        assert!(
+            StaffPermissions {
+                user_positions: Vec::new(),
+                perm_overrides: vec!["rpc.test".to_string()]
+            }
+            .resolve()
+            == vec!["rpc.test".to_string()]
+        );
+
+        // Test for basic resolution of single position
+        assert!(
+            StaffPermissions {
+                user_positions: vec![(
+                    PartialStaffPosition {
+                        id: "test".to_string(),
+                        index: 1,
+                        perms: vec!["rpc.test".to_string()]
+                    }
+                )],
+                perm_overrides: vec![]
+            }
+            .resolve()
+            == vec!["rpc.test".to_string()]
+        );
+
+        // Test for basic resolution of multiple positions
+        assert!(
+            StaffPermissions {
+                user_positions: vec![
+                    PartialStaffPosition {
+                        id: "test".to_string(),
+                        index: 1,
+                        perms: vec!["rpc.test".to_string()]
+                    },
+                    PartialStaffPosition {
+                        id: "test2".to_string(),
+                        index: 2,
+                        perms: vec!["rpc.test2".to_string()]
+                    }
+                ],
+                perm_overrides: vec![]
+            }
+            .resolve()
+            == vec!["rpc.test2".to_string(), "rpc.test".to_string()]
+        );
+
+        // Test for basic resolution of multiple positions with negators
+        assert!(
+            StaffPermissions {
+                user_positions: vec![
+                    PartialStaffPosition {
+                        id: "test".to_string(),
+                        index: 1,
+                        perms: vec!["rpc.test".to_string(), "rpc.test2".to_string()]
+                    },
+                    PartialStaffPosition {
+                        id: "test2".to_string(),
+                        index: 2,
+                        perms: vec!["~rpc.test".to_string(), "~rpc.test3".to_string()]
+                    }
+                ],
+                perm_overrides: vec![]
+            }
+            .resolve()
+            == vec!["~rpc.test3".to_string(), "rpc.test".to_string(), "rpc.test2".to_string()]
+        );
+
+        // Same as above but testing negator ordering
+        assert!(
+            StaffPermissions {
+                user_positions: vec![
+                    PartialStaffPosition {
+                        id: "test".to_string(),
+                        index: 1,
+                        perms: vec!["~rpc.test".to_string(), "rpc.test2".to_string()]
+                    },
+                    PartialStaffPosition {
+                        id: "test2".to_string(),
+                        index: 2,
+                        perms: vec!["~rpc.test3".to_string(), "rpc.test".to_string()] // The rpc.test here should not be set in final output due to negator in index 1
+                    }, // Note that indexing here works in reverse, so the higher index is actually lower in the hierarchy
+                ],
+                perm_overrides: vec![]
+            }
+            .resolve()
+            == vec!["~rpc.test3".to_string(), "~rpc.test".to_string(), "rpc.test2".to_string()]
+        );
+
+        // Now mix everything together
+        assert!(
+            StaffPermissions {
+                user_positions: vec![
+                    PartialStaffPosition {
+                        id: "test".to_string(),
+                        index: 1,
+                        perms: vec!["~rpc.test".to_string(), "rpc.test2".to_string(), "rpc.test3".to_string()] // The rpc.test here is overriden by index 0 (perm_overrides)
+                    },
+                    PartialStaffPosition {
+                        id: "test2".to_string(),
+                        index: 2,
+                        perms: vec!["~rpc.test3".to_string(), "~rpc.test2".to_string()] // The rpc.test2 negator is overriden by index 1
+                    }, // Note that indexing here works in reverse, so the higher index is actually lower in the hierarchy
+                ],
+                perm_overrides: vec!["rpc.test".to_string()]
+            }
+            .resolve()
+            == vec!["~rpc.test".to_string(), "rpc.test2".to_string(), "rpc.test3".to_string()]
+        );
+
+        // @clear
+        assert!(
+            StaffPermissions {
+                user_positions: vec![
+                    PartialStaffPosition {
+                        id: "test".to_string(),
+                        index: 1,
+                        perms: vec!["~rpc.test".to_string(), "rpc.test2".to_string()] // The rpc.test here is overriden by index 0 (perm_overrides)
+                    },
+                    PartialStaffPosition {
+                        id: "test".to_string(),
+                        index: 1,
+                        perms: vec!["global.@clear".to_string(), "~rpc.test".to_string(), "rpc.test2".to_string()] // global.@clear should clear all permissions before it
+                    },
+                    PartialStaffPosition {
+                        id: "test2".to_string(),
+                        index: 2,
+                        perms: vec!["~rpc.test3".to_string(), "~rpc.test2".to_string()] // The rpc.test2 negator is overriden by index 1
+                    }, // Note that indexing here works in reverse, so the higher index is actually lower in the hierarchy
+                ],
+                perm_overrides: vec!["~rpc.test".to_string(), "~rpc.test3".to_string(), "rpc.test2".to_string()]
+            }
+            .resolve()
+            == vec!["~rpc.test".to_string(), "rpc.test2".to_string()]
+        );
     }
 }
