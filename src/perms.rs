@@ -22,6 +22,10 @@ use indexmap::IndexMap;
 /// Permission overrides are a special case of permissions that are used to override permissions for a specific user. 
 /// They use the same structure and follow the same rules as a normal permission, but are stored separately from the normal permissions.
 ///
+/// # Special Cases
+/// 
+/// - Special case: If a * element exists for a smaller index, then the negator must be ignored. E.g. manager has ~rpc.PremiumAdd but head_manager has no such negator
+/// 
 /// # Clearing Permissions
 /// 
 /// In some cases, it may desired to start from a fresh slate of permissions. To do this, add a '@clear' permission to the namespace. All permissions after this on that namespace will be cleared
@@ -128,10 +132,37 @@ impl StaffPermissions {
                             continue;
                         }
 
-                        // Then we can freely add the permission
+                        // Then we can freely add the negator
                         applied_perms_val.insert(perm.clone(), pos.index);            
                     }
                 } else {
+                    // Special case: If a * element exists for a smaller index, then the negator must be ignored. E.g. manager has ~rpc.PremiumAdd but head_manager has no such negator
+                    if perm.ends_with(".*") {
+                        // Remove negators. As the permissions are sorted, we can just check if a negator is in the hashmap
+                        let perm_split = perm.split('.').collect::<Vec<&str>>();
+                        let perm_namespace = perm_split[0];
+
+                        // If the * element is from a permission of lower index, then we can ignore this negator
+                        let mut to_remove = Vec::new();
+                        for (key, _) in applied_perms_val.iter() {
+                            if !key.starts_with('~') {
+                                continue; // This special case only applies to negators
+                            }
+
+                            let key_namespace = key.split('.').collect::<Vec<&str>>()[0].trim_start_matches('~');
+                            // Same namespaces
+                            if key_namespace == perm_namespace {
+                                // Then we can ignore this negator
+                                to_remove.push(key.clone());
+                            }
+                        }
+
+                        // Remove here to avoid immutable borrow
+                        for key in to_remove {
+                            applied_perms_val.remove(&key);
+                        }
+                    }
+
                     // If its not a negator, first check if there's a negator
                     if applied_perms_val.get(&format!("~{}", perm)).is_some() {
                         // Remove the negator
@@ -153,7 +184,9 @@ impl StaffPermissions {
         
         let applied_perms = applied_perms_val.keys().cloned().collect::<Vec<String>>();
 
-        println!("Applied perms: {:?} with hashmap: {:?}", applied_perms, applied_perms_val);
+        if cfg!(test) {
+            println!("Applied perms: {:?} with hashmap: {:?}", applied_perms, applied_perms_val);
+        }
 
         applied_perms
     }
@@ -401,6 +434,48 @@ mod tests {
             }
             .resolve()
             == vec!["~rpc.test".to_string(), "rpc.test2".to_string()]
+        );
+
+        // Special case of * with negators
+        assert!(
+            StaffPermissions {
+                user_positions: vec![
+                    PartialStaffPosition {
+                        id: "test".to_string(),
+                        index: 1,
+                        perms: vec!["rpc.*".to_string()] // The rpc.test here is overriden by index 0 (perm_overrides)
+                    },
+                    PartialStaffPosition {
+                        id: "test2".to_string(),
+                        index: 2,
+                        perms: vec!["~rpc.test3".to_string(), "~rpc.test2".to_string()] // The rpc negators should be overriden by index 1 rpc.*
+                    }, // Note that indexing here works in reverse, so the higher index is actually lower in the hierarchy
+                ],
+                perm_overrides: vec![]
+            }
+            .resolve()
+            == vec!["rpc.*".to_string()]
+        );
+
+        // Ensure special case does not apply when index is higher (2 > 1 in the below)
+        assert!(
+            StaffPermissions {
+                user_positions: vec![
+                    PartialStaffPosition {
+                        id: "test2".to_string(),
+                        index: 1,
+                        perms: vec!["~rpc.test3".to_string(), "~rpc.test2".to_string()] // The rpc negators should be overriden by index 1 rpc.*
+                    }, // Note that indexing here works in reverse, so the higher index is actually lower in the hierarchy
+                    PartialStaffPosition {
+                        id: "test".to_string(),
+                        index: 2,
+                        perms: vec!["rpc.*".to_string()] // The rpc.test here is overriden by index 0 (perm_overrides)
+                    },
+                ],
+                perm_overrides: vec![]
+            }
+            .resolve()
+            == vec!["rpc.*".to_string(), "~rpc.test3".to_string(), "~rpc.test2".to_string()]
         );
     }
 }
