@@ -62,15 +62,17 @@ pub struct StaffPermissions {
 
 impl StaffPermissions {
     pub fn resolve(&self) -> Vec<String> {
-        let mut applied_perms_val = IndexMap::new();
-
-        // Add the permission overrides as index 0
-        for perm in self.perm_overrides.iter() {
-            applied_perms_val.insert(perm.clone(), 0);
-        }
+        let mut applied_perms_val: IndexMap<String, i32> = IndexMap::new();
 
         // Sort the positions by index in descending order
         let mut user_positions = self.user_positions.clone();
+
+        // Add the permission overrides as index 0
+        user_positions.push(PartialStaffPosition {
+            id: "perm_overrides".to_string(),
+            index: 0,
+            perms: self.perm_overrides.clone(),
+        });
 
         user_positions.sort_by(|a, b| b.index.cmp(&a.index));
 
@@ -407,7 +409,7 @@ mod tests {
                 perm_overrides: vec!["rpc.test".to_string()]
             }
             .resolve()
-            == vec!["~rpc.test".to_string(), "rpc.test2".to_string(), "rpc.test3".to_string()]
+            == vec!["rpc.test2".to_string(), "rpc.test3".to_string(), "rpc.test".to_string(), ]
         );
 
         // @clear
@@ -430,10 +432,10 @@ mod tests {
                         perms: vec!["~rpc.test3".to_string(), "~rpc.test2".to_string()] // The rpc.test2 negator is overriden by index 1
                     }, // Note that indexing here works in reverse, so the higher index is actually lower in the hierarchy
                 ],
-                perm_overrides: vec!["~rpc.test".to_string(), "~rpc.test3".to_string(), "rpc.test2".to_string()]
+                perm_overrides: vec!["~rpc.test".to_string(), "rpc.test2".to_string(), "rpc.test3".to_string()]
             }
             .resolve()
-            == vec!["~rpc.test".to_string(), "rpc.test2".to_string()]
+            == vec!["~rpc.test".to_string(), "rpc.test2".to_string(), "rpc.test3".to_string()]
         );
 
         // Special case of * with negators
@@ -476,6 +478,23 @@ mod tests {
             }
             .resolve()
             == vec!["rpc.*".to_string(), "~rpc.test3".to_string(), "~rpc.test2".to_string()]
+        );
+
+        // Some common cases
+        // Ensure special case does not apply when index is higher (2 > 1 in the below)
+        assert!(
+            StaffPermissions {
+                user_positions: vec![
+                    PartialStaffPosition {
+                        id: "reviewer".to_string(),
+                        index: 1,
+                        perms: vec!["rpc.Claim".to_string()] // The rpc negators should be overriden by index 1 rpc.*
+                    }, // Note that indexing here works in reverse, so the higher index is actually lower in the hierarchy
+                ],
+                perm_overrides: vec!["~rpc.Claim".to_string()]
+            }
+            .resolve()
+            == vec!["~rpc.Claim".to_string()]
         );
     }
 }
