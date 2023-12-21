@@ -31,6 +31,15 @@ use indexmap::IndexMap;
 /// In some cases, it may desired to start from a fresh slate of permissions. To do this, add a '@clear' permission to the namespace. All permissions after this on that namespace will be cleared
 /// 
 /// TODO: Use enums for storing permissions instead of strings by serializing and deserializing them to strings when needed
+///
+/// # Permission Management
+/// 
+/// A permission can be added/managed by a user to a position if the following applies:
+/// 
+/// - The user must *have* the permission themselves. If the permission is a negator, then the user must have the 'base' permission (permission without the negator operator)
+/// - If the permission is `*`, then the user has no negators in that namespace that the target perm set would not also have
+/// 
+/// Note on point 2: this means that if a user is trying to add/remove rpc.* but also has ~rpc.test, then they cannot add rpc.* unless the target user also has ~rpc.test
 
 //
 
@@ -197,7 +206,7 @@ impl StaffPermissions {
 /// Check if the user has a permission given a set of user permissions and a permission to check for
 /// 
 /// This assumes a resolved set of permissions
-pub fn has_perm(perms: &Vec<String>, perm: &str) -> bool {
+pub fn has_perm(perms: &[String], perm: &str) -> bool {
     let mut perm_split = perm.split('.').collect::<Vec<&str>>();
 
     if perm_split.len() < 2 {
@@ -233,7 +242,7 @@ pub fn has_perm(perms: &Vec<String>, perm: &str) -> bool {
 
         if (user_perm_namespace == perm_namespace
             || user_perm_namespace == "global"
-            || perm_namespace == "global")
+        )
             && (user_perm_name == "*" || user_perm_name == perm_name)
         {
             // We have to check for all negator
@@ -253,49 +262,96 @@ pub fn build(namespace: &str, perm: &str) -> String {
     format!("{}.{}", namespace, perm)
 }
 
+/// Checks whether or not a resolved set of permissions allows the addition or removal of a permission to a position
+pub fn check_patch_changes(manager_perms: &[String], current_perms: &[String], new_perms: &[String]) -> Result<(), crate::Error> {
+    // Take the symmetric_difference between current_perms and new_perms
+    let hset_1 = current_perms.iter().collect::<std::collections::HashSet<&String>>();
+    let hset_2 = new_perms.iter().collect::<std::collections::HashSet<&String>>();
+    let changed = hset_2.symmetric_difference(&hset_1).cloned().collect::<Vec<&String>>();
+
+    for perm in changed {
+        let mut resolved_perm = perm.clone();
+
+        if perm.starts_with('~') {
+            // Strip the ~ from namespace to check it
+            resolved_perm = resolved_perm.trim_start_matches('~').to_string();
+        }
+
+        // Check if the user has the permission
+        if !has_perm(manager_perms, &resolved_perm) {
+            return Err(format!("You do not have permission to add this permission: {}", resolved_perm).into());
+        }
+
+        if perm.ends_with(".*") {
+            let perm_split = perm.split('.').collect::<Vec<&str>>();
+            let perm_namespace = perm_split[0]; // SAFETY: split is guaranteed to have at least 1 element
+
+            // Ensure that new_perms has *at least* negators that manager_perms has within the namespace
+            for perms in manager_perms {
+                if !perms.starts_with('~') {
+                    continue; // Only check negators
+                }
+
+                let perms_split = perms.split('.').collect::<Vec<&str>>();
+                let perms_namespace = perms_split[0].trim_start_matches('~');
+
+                if perms_namespace == perm_namespace {
+                    // Then we have a negator in the same namespace
+                    if !new_perms.contains(perms) {
+                        return Err(format!("You do not have permission to add wildcard permission {} with negators due to lack of negator {}", perm, perms).into());
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_has_perm() {
-        assert!(has_perm(&vec!["global.*".to_string()], "test")); // global.* implies test[.*]
-        assert!(has_perm(&vec!["global.test".to_string()], "rpc.test")); // global.test implies rpc.test
+        assert!(has_perm(&["global.*".to_string()], "test")); // global.* implies test[.*]
+        assert!(!has_perm(&["rpc.*".to_string()], "global.*")); // rpc.* does not imply global.* as rpc != global
+        assert!(has_perm(&["global.test".to_string()], "rpc.test")); // global.test implies rpc.test
         assert!(!has_perm(
-            &vec!["global.test".to_string()],
+            &["global.test".to_string()],
             "rpc.view_bot_queue"
         )); // global.test does not imply rpc.view_bot_queue as global = rpc, test != view_bot_queue
         assert!(has_perm(
-            &vec!["global.*".to_string()],
+            &["global.*".to_string()],
             "rpc.view_bot_queue"
         )); // global.* implies rpc.view_bot_queue
-        assert!(has_perm(&vec!["rpc.*".to_string()], "rpc.ViewBotQueue")); // rpc.* implies rpc.view_bot_queue
+        assert!(has_perm(&["rpc.*".to_string()], "rpc.ViewBotQueue")); // rpc.* implies rpc.view_bot_queue
         assert!(!has_perm(
-            &vec!["rpc.BotClaim".to_string()],
+            &["rpc.BotClaim".to_string()],
             "rpc.ViewBotQueue"
         )); // rpc.BotClaim does not implies rpc.ViewBotQueue as BotClaim != ViewBotQueue
-        assert!(!has_perm(&vec!["apps.*".to_string()], "rpc.ViewBotQueue")); // apps.* does not imply rpc.ViewBotQueue, apps != rpc
-        assert!(!has_perm(&vec!["apps.*".to_string()], "rpc.*")); // apps.* does not imply rpc.*, apps != rpc despite the global permission
-        assert!(!has_perm(&vec!["apps.test".to_string()], "rpc.test")); // apps.test does not imply rpc.test, apps != rpc despite the permissions being the same
+        assert!(!has_perm(&["apps.*".to_string()], "rpc.ViewBotQueue")); // apps.* does not imply rpc.ViewBotQueue, apps != rpc
+        assert!(!has_perm(&["apps.*".to_string()], "rpc.*")); // apps.* does not imply rpc.*, apps != rpc despite the global permission
+        assert!(!has_perm(&["apps.test".to_string()], "rpc.test")); // apps.test does not imply rpc.test, apps != rpc despite the permissions being the same
 
         // Negator tests
-        assert!(has_perm(&vec!["apps.*".to_string()], "apps.test")); // apps.* implies apps.test
-        assert!(!has_perm(&vec!["~apps.*".to_string()], "apps.test")); // ~apps.* does not imply apps.test as it is negated
+        assert!(has_perm(&["apps.*".to_string()], "apps.test")); // apps.* implies apps.test
+        assert!(!has_perm(&["~apps.*".to_string()], "apps.test")); // ~apps.* does not imply apps.test as it is negated
         assert!(!has_perm(
-            &vec!["apps.*".to_string(), "~apps.test".to_string()],
+            &["apps.*".to_string(), "~apps.test".to_string()],
             "apps.test"
         )); // apps.* does not imply apps.test due to negator ~apps.test
         assert!(!has_perm(
-            &vec!["~apps.test".to_string(), "apps.*".to_string()],
+            &["~apps.test".to_string(), "apps.*".to_string()],
             "apps.test"
         )); // apps.* does not imply apps.test due to negator ~apps.test. Same as above with different order of perms to test for ordering
-        assert!(has_perm(&vec!["apps.test".to_string()], "apps.test")); // ~apps.* does not imply apps.test as it is negated
+        assert!(has_perm(&["apps.test".to_string()], "apps.test")); // ~apps.* does not imply apps.test as it is negated
         assert!(has_perm(
-            &vec!["apps.test".to_string(), "apps.*".to_string()],
+            &["apps.test".to_string(), "apps.*".to_string()],
             "apps.test"
         )); // More tests
         assert!(has_perm(
-            &vec!["~apps.test".to_string(), "global.*".to_string()],
+            &["~apps.test".to_string(), "global.*".to_string()],
             "apps.test"
         )); // Test for global.* handling as a wildcard 'return true'
     }
@@ -495,6 +551,77 @@ mod tests {
             }
             .resolve()
             == vec!["~rpc.Claim".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_check_patch_changes() {
+        // global.* should always be allowed to change perms
+        assert!(
+            check_patch_changes(
+                &["global.*".to_string()],
+                &["rpc.test".to_string()],
+                &["rpc.test".to_string(), "rpc.test2".to_string()]
+            )
+            .is_ok()
+        );
+
+        // Users should not be able to remove perms they dont have
+        assert!(
+            check_patch_changes(
+                &["rpc.*".to_string()],
+                &["global.*".to_string()],
+                &["rpc.test".to_string(), "rpc.test2".to_string()]
+            )
+            .is_err()
+        );
+
+        // Basic real world test
+        assert!(
+            check_patch_changes(
+                &["rpc.*".to_string()],
+                &["rpc.test".to_string()],
+                &["rpc.test".to_string(), "rpc.test2".to_string()]
+            )
+            .is_ok()
+        );
+
+        // If adding '*' permissions, target must have all negators of user
+        assert!(
+            check_patch_changes(
+                &["~rpc.test".to_string(), "rpc.*".to_string()],
+                &["rpc.foobar".to_string()],
+                &["rpc.*".to_string()]
+            )
+            .is_err()
+        );
+        assert!(
+            check_patch_changes(
+                &["~rpc.test".to_string(), "rpc.*".to_string()],
+                &["~rpc.test".to_string()],
+                &["rpc.*".to_string()]
+            )
+            .is_err()
+        );
+
+        // This is OK though
+        assert!(
+            check_patch_changes(
+                &["~rpc.test".to_string(), "rpc.*".to_string()],
+                &["~rpc.test".to_string()],
+                &["rpc.*".to_string(), "~rpc.test".to_string(), "~rpc.test2".to_string()]
+            )
+            .is_ok()
+        );
+
+        // But this isnt as rpc.test negator isnt in new
+        assert!(
+            check_patch_changes(
+                &["~rpc.test".to_string(), "rpc.*".to_string()],
+                &["~rpc.test".to_string()],
+                &["rpc.*".to_string(), "~rpc.test2".to_string(), "~rpc.test2".to_string()]
+            )
+            .is_err()
         );
     }
 }
