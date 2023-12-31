@@ -64,6 +64,7 @@ impl Hash for PartialStaffPosition {
 /// A set of permissions for a staff member
 /// 
 /// This is a list of permissions that the user has
+#[derive(Clone)]
 pub struct StaffPermissions {
     pub user_positions: Vec<PartialStaffPosition>,
     pub perm_overrides: Vec<String>,
