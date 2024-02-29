@@ -209,8 +209,8 @@ pub fn has_perm(perms: &[String], perm: &str) -> bool {
             has_perm = Some(user_perm_split);
 
             if user_perm.starts_with('~') {
-                has_negator = true; // While we can optimize here by returning false, we may want to add more negation systems in the future
-            }
+	    	has_negator = true; // While we can optimize here by returning false, we may want to add more negation systems in the future
+	    }
         }
     }
 

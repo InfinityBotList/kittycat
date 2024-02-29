@@ -11,3 +11,5 @@
 /**/.idea/
 /**/kittycat.iml
 /**/vcs.xml
+/ts/node_modules
+/ts/dist

@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "es2016",
+    "module": "commonjs",
+    "sourceMap": true,
+    "outDir": "dist"
+   },
+  "files": [
+    "perms.ts",
+    "perms_test.ts"
+  ],
+  "include": [
+  ],
+  "exclude": [],
+}

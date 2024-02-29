@@ -1,0 +1,28 @@
+{
+  "name": "kittycat",
+  "version": "1.0.0",
+  "description": "Kittycat permission system",
+  "main": "perms.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && node perms_test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/infinitybotlist/kittycat.git"
+  },
+  "keywords": [
+    "perms",
+    "antiraid",
+    "ibl"
+  ],
+  "author": "Rootspring",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/infinitybotlist/kittycat/issues"
+  },
+  "homepage": "https://github.com/infinitybotlist/kittycat#readme",
+  "dependencies": {
+    "typescript": "^5.3.3"
+  }
+}
