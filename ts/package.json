@@ -1,6 +1,6 @@
 {
-  "name": "kittycat",
-  "version": "1.0.0",
+  "name": "@infinitybots/kittycat",
+  "version": "1.0.1",
   "description": "Kittycat permission system",
   "main": "perms.js",
   "scripts": {
