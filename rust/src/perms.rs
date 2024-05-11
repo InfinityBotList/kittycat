@@ -74,6 +74,12 @@ impl From<String> for Permission {
     }
 }
 
+impl From<&String> for Permission {
+    fn from(perm: &String) -> Self {
+        Permission::from_string(perm)
+    }
+}
+
 impl PartialEq<String> for Permission {
     fn eq(&self, other: &String) -> bool {
         self == &Permission::from_string(other)
