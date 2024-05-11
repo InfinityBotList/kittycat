@@ -1,29 +1,31 @@
 {
-  "name": "@infinitybots/kittycat",
-  "version": "1.0.3",
-  "description": "Kittycat permission system",
-  "main": "dist/perms.js",
-  "scripts": {
-    "build": "tsc",
-    "run-publish": "npm run build && npm publish --access=public",
-    "test": "tsc && node perms_test.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/infinitybotlist/kittycat.git"
-  },
-  "keywords": [
-    "perms",
-    "antiraid",
-    "ibl"
-  ],
-  "author": "Rootspring",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/infinitybotlist/kittycat/issues"
-  },
-  "homepage": "https://github.com/infinitybotlist/kittycat#readme",
-  "dependencies": {
-    "typescript": "^5.3.3"
-  }
+	"name": "@infinitybots/kittycat",
+	"version": "1.0.3",
+	"description": "Kittycat permission system",
+	"main": "dist/perms.js",
+	"scripts": {
+		"build": "tsc",
+		"format": "prettier --write .",
+		"run-publish": "npm run build && npm publish --access=public",
+		"test": "tsc && node dist/perms_test.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/infinitybotlist/kittycat.git"
+	},
+	"keywords": [
+		"perms",
+		"antiraid",
+		"ibl"
+	],
+	"author": "Rootspring",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/infinitybotlist/kittycat/issues"
+	},
+	"homepage": "https://github.com/infinitybotlist/kittycat#readme",
+	"dependencies": {
+		"prettier": "^3.2.5",
+		"typescript": "^5.3.3"
+	}
 }

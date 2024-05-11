@@ -3,233 +3,233 @@ package perms
 import "testing"
 
 func TestHasPerm(t *testing.T) {
-	if !HasPerm([]string{"global.*"}, "test") {
+	if !HasPerm(PFSS([]string{"global.*"}), PFS("test")) {
 		t.Error("Expected true, got false")
 	}
-	if HasPerm([]string{"rpc.*"}, "global.*") {
+	if HasPerm(PFSS([]string{"rpc.*"}), PFS("global.*")) {
 		t.Error("Expected false, got true")
 	}
-	if !HasPerm([]string{"global.test"}, "rpc.test") {
+	if !HasPerm(PFSS([]string{"global.test"}), PFS("rpc.test")) {
 		t.Error("Expected true, got false")
 	}
-	if HasPerm([]string{"global.test"}, "rpc.view_bot_queue") {
+	if HasPerm(PFSS([]string{"global.test"}), PFS("rpc.view_bot_queue")) {
 		t.Error("Expected false, got true")
 	}
-	if !HasPerm([]string{"global.*"}, "rpc.view_bot_queue") {
+	if !HasPerm(PFSS([]string{"global.*"}), PFS("rpc.view_bot_queue")) {
 		t.Error("Expected true, got false")
 	}
-	if !HasPerm([]string{"rpc.*"}, "rpc.ViewBotQueue") {
+	if !HasPerm(PFSS([]string{"rpc.*"}), PFS("rpc.ViewBotQueue")) {
 		t.Error("Expected true, got false")
 	}
-	if HasPerm([]string{"rpc.BotClaim"}, "rpc.ViewBotQueue") {
+	if HasPerm(PFSS([]string{"rpc.BotClaim"}), PFS("rpc.ViewBotQueue")) {
 		t.Error("Expected false, got true")
 	}
-	if HasPerm([]string{"apps.*"}, "rpc.ViewBotQueue") {
+	if HasPerm(PFSS([]string{"apps.*"}), PFS("rpc.ViewBotQueue")) {
 		t.Error("Expected false, got true")
 	}
-	if HasPerm([]string{"apps.*"}, "rpc.*") {
+	if HasPerm(PFSS([]string{"apps.*"}), PFS("rpc.*")) {
 		t.Error("Expected false, got true")
 	}
-	if HasPerm([]string{"apps.test"}, "rpc.test") {
+	if HasPerm(PFSS([]string{"apps.test"}), PFS("rpc.test")) {
 		t.Error("Expected false, got true")
 	}
-	if !HasPerm([]string{"apps.*"}, "apps.test") {
+	if !HasPerm(PFSS([]string{"apps.*"}), PFS("apps.test")) {
 		t.Error("Expected true, got false")
 	}
-	if HasPerm([]string{"~apps.*"}, "apps.test") {
+	if HasPerm(PFSS([]string{"~apps.*"}), PFS("apps.test")) {
 		t.Error("Expected false, got true")
 	}
-	if HasPerm([]string{"apps.*", "~apps.test"}, "apps.test") {
+	if HasPerm(PFSS([]string{"apps.*", "~apps.test"}), PFS("apps.test")) {
 		t.Error("Expected false, got true")
 	}
-	if HasPerm([]string{"~apps.test", "apps.*"}, "apps.test") {
+	if HasPerm(PFSS([]string{"~apps.test", "apps.*"}), PFS("apps.test")) {
 		t.Error("Expected false, got true")
 	}
-	if !HasPerm([]string{"apps.test"}, "apps.test") {
+	if !HasPerm(PFSS([]string{"apps.test"}), PFS("apps.test")) {
 		t.Error("Expected true, got false")
 	}
-	if !HasPerm([]string{"apps.test", "apps.*"}, "apps.test") {
+	if !HasPerm(PFSS([]string{"apps.test", "apps.*"}), PFS("apps.test")) {
 		t.Error("Expected true, got false")
 	}
-	if !HasPerm([]string{"~apps.test", "global.*"}, "apps.test") {
+	if !HasPerm(PFSS([]string{"~apps.test", "global.*"}), PFS("apps.test")) {
 		t.Error("Expected true, got false")
 	}
 }
 
 func TestResolvePerms(t *testing.T) {
 	// Test for basic resolution of overrides
-	expected := []string{"rpc.test"}
+	expected := []Permission{PFS("rpc.test")}
 	result := StaffPermissions{
 		UserPositions: []PartialStaffPosition{},
-		PermOverrides: []string{"rpc.test"},
+		PermOverrides: []Permission{PFS("rpc.test")},
 	}.Resolve()
 	if !equal(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
 
 	// Test for basic resolution of single position
-	expected = []string{"rpc.test"}
+	expected = []Permission{PFS("rpc.test")}
 	result = StaffPermissions{
 		UserPositions: []PartialStaffPosition{
 			{
 				ID:    "test",
 				Index: 1,
-				Perms: []string{"rpc.test"},
+				Perms: []Permission{PFS("rpc.test")},
 			},
 		},
-		PermOverrides: []string{},
+		PermOverrides: []Permission{},
 	}.Resolve()
 	if !equal(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
 
 	// Test for basic resolution of multiple positions
-	expected = []string{"rpc.test2", "rpc.test"}
+	expected = []Permission{PFS("rpc.test2"), PFS("rpc.test")}
 	result = StaffPermissions{
 		UserPositions: []PartialStaffPosition{
 			{
 				ID:    "test",
 				Index: 1,
-				Perms: []string{"rpc.test"},
+				Perms: []Permission{PFS("rpc.test")},
 			},
 			{
 				ID:    "test2",
 				Index: 2,
-				Perms: []string{"rpc.test2"},
+				Perms: []Permission{PFS("rpc.test2")},
 			},
 		},
-		PermOverrides: []string{},
+		PermOverrides: []Permission{},
 	}.Resolve()
 	if !equal(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
 
 	// Test for basic resolution of multiple positions with negators
-	expected = []string{"~rpc.test3", "rpc.test", "rpc.test2"}
+	expected = []Permission{PFS("~rpc.test3"), PFS("rpc.test"), PFS("rpc.test2")}
 	result = StaffPermissions{
 		UserPositions: []PartialStaffPosition{
 			{
 				ID:    "test",
 				Index: 1,
-				Perms: []string{"rpc.test", "rpc.test2"},
+				Perms: []Permission{PFS("rpc.test"), PFS("rpc.test2")},
 			},
 			{
 				ID:    "test2",
 				Index: 2,
-				Perms: []string{"~rpc.test", "~rpc.test3"},
+				Perms: []Permission{PFS("~rpc.test"), PFS("~rpc.test3")},
 			},
 		},
-		PermOverrides: []string{},
+		PermOverrides: []Permission{},
 	}.Resolve()
 	if !equal(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
 
 	// Same as above but testing negator ordering
-	expected = []string{"~rpc.test3", "~rpc.test", "rpc.test2"}
+	expected = []Permission{PFS("~rpc.test3"), PFS("~rpc.test"), PFS("rpc.test2")}
 	result = StaffPermissions{
 		UserPositions: []PartialStaffPosition{
 			{
 				ID:    "test",
 				Index: 1,
-				Perms: []string{"~rpc.test", "rpc.test2"},
+				Perms: []Permission{PFS("~rpc.test"), PFS("rpc.test2")},
 			},
 			{
 				ID:    "test2",
 				Index: 2,
-				Perms: []string{"~rpc.test3", "rpc.test"},
+				Perms: []Permission{PFS("~rpc.test3"), PFS("rpc.test")},
 			},
 		},
-		PermOverrides: []string{},
+		PermOverrides: []Permission{},
 	}.Resolve()
 	if !equal(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
 
 	// Now mix everything together
-	expected = []string{"rpc.test2", "rpc.test3", "rpc.test"}
+	expected = []Permission{PFS("rpc.test2"), PFS("rpc.test3"), PFS("rpc.test")}
 	result = StaffPermissions{
 		UserPositions: []PartialStaffPosition{
 			{
 				ID:    "test",
 				Index: 1,
-				Perms: []string{"~rpc.test", "rpc.test2", "rpc.test3"},
+				Perms: []Permission{PFS("~rpc.test"), PFS("rpc.test2"), PFS("rpc.test3")},
 			},
 			{
 				ID:    "test2",
 				Index: 2,
-				Perms: []string{"~rpc.test3", "~rpc.test2"},
+				Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
 			},
 		},
-		PermOverrides: []string{"rpc.test"},
+		PermOverrides: []Permission{PFS("rpc.test")},
 	}.Resolve()
 	if !equal(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
 
 	// @clear
-	expected = []string{"~rpc.test", "rpc.test2", "rpc.test3"}
+	expected = []Permission{PFS("~rpc.test"), PFS("rpc.test2"), PFS("rpc.test3")}
 	result = StaffPermissions{
 		UserPositions: []PartialStaffPosition{
 			{
 				ID:    "test",
 				Index: 1,
-				Perms: []string{"~rpc.test", "rpc.test2"},
+				Perms: []Permission{PFS("~rpc.test"), PFS("rpc.test2")},
 			},
 			{
 				ID:    "test",
 				Index: 1,
-				Perms: []string{"global.@clear", "~rpc.test", "rpc.test2"},
+				Perms: []Permission{PFS("global.@clear"), PFS("~rpc.test"), PFS("rpc.test2")},
 			},
 			{
 				ID:    "test2",
 				Index: 2,
-				Perms: []string{"~rpc.test3", "~rpc.test2"},
+				Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
 			},
 		},
-		PermOverrides: []string{"~rpc.test", "rpc.test2", "rpc.test3"},
+		PermOverrides: []Permission{PFS("~rpc.test"), PFS("rpc.test2"), PFS("rpc.test3")},
 	}.Resolve()
 	if !equal(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
 
 	// Special case of * with negators
-	expected = []string{"rpc.*"}
+	expected = []Permission{PFS("rpc.*")}
 	result = StaffPermissions{
 		UserPositions: []PartialStaffPosition{
 			{
 				ID:    "test",
 				Index: 1,
-				Perms: []string{"rpc.*"},
+				Perms: []Permission{PFS("rpc.*")},
 			},
 			{
 				ID:    "test2",
 				Index: 2,
-				Perms: []string{"~rpc.test3", "~rpc.test2"},
+				Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
 			},
 		},
-		PermOverrides: []string{},
+		PermOverrides: []Permission{},
 	}.Resolve()
 	if !equal(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
 
 	// Ensure special case does not apply when index is higher (2 > 1 in the below)
-	expected = []string{"rpc.*", "~rpc.test3", "~rpc.test2"}
+	expected = []Permission{PFS("rpc.*"), PFS("~rpc.test3"), PFS("~rpc.test2")}
 	result = StaffPermissions{
 		UserPositions: []PartialStaffPosition{
 			{
 				ID:    "test2",
 				Index: 1,
-				Perms: []string{"~rpc.test3", "~rpc.test2"},
+				Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
 			},
 			{
 				ID:    "test",
 				Index: 2,
-				Perms: []string{"rpc.*"},
+				Perms: []Permission{PFS("rpc.*")},
 			},
 		},
-		PermOverrides: []string{},
+		PermOverrides: []Permission{},
 	}.Resolve()
 	if !equal(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
@@ -237,16 +237,16 @@ func TestResolvePerms(t *testing.T) {
 
 	// Some common cases
 	// Ensure special case does not apply when index is higher (2 > 1 in the below)
-	expected = []string{"~rpc.Claim"}
+	expected = []Permission{PFS("~rpc.Claim")}
 	result = StaffPermissions{
 		UserPositions: []PartialStaffPosition{
 			{
 				ID:    "reviewer",
 				Index: 1,
-				Perms: []string{"rpc.Claim"},
+				Perms: []Permission{PFS("rpc.Claim")},
 			},
 		},
-		PermOverrides: []string{"~rpc.Claim"},
+		PermOverrides: []Permission{PFS("~rpc.Claim")},
 	}.Resolve()
 	if !equal(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
@@ -254,43 +254,44 @@ func TestResolvePerms(t *testing.T) {
 }
 
 func TestCheckPatchChanges(t *testing.T) {
-	err := CheckPatchChanges([]string{"global.*"}, []string{"rpc.test"}, []string{"rpc.test", "rpc.test2"})
+	err := CheckPatchChanges([]Permission{PFS("global.*")}, []Permission{PFS("rpc.test")}, PFSS([]string{"rpc.test", "rpc.test2"}))
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
 
-	err = CheckPatchChanges([]string{"rpc.*"}, []string{"global.*"}, []string{"rpc.test", "rpc.test2"})
+	err = CheckPatchChanges([]Permission{PFS("rpc.*")}, []Permission{PFS("global.*")}, PFSS([]string{"rpc.test", "rpc.test2"}))
 	if err == nil {
 		t.Error("Expected error, got nil")
 	}
 
-	err = CheckPatchChanges([]string{"rpc.*"}, []string{"rpc.test"}, []string{"rpc.test", "rpc.test2"})
+	err = CheckPatchChanges([]Permission{PFS("rpc.*")}, []Permission{PFS("rpc.test")}, PFSS([]string{"rpc.test", "rpc.test2"}))
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
 
-	err = CheckPatchChanges([]string{"~rpc.test", "rpc.*"}, []string{"rpc.foobar"}, []string{"rpc.*"})
+	// If adding '*' permissions, target must have all negators of user
+	err = CheckPatchChanges([]Permission{PFS("~rpc.test"), PFS("rpc.*")}, []Permission{PFS("rpc.foobar")}, []Permission{PFS("rpc.*")})
 	if err == nil {
 		t.Error("Expected error, got nil")
 	}
 
-	err = CheckPatchChanges([]string{"~rpc.test", "rpc.*"}, []string{"~rpc.test"}, []string{"rpc.*"})
+	err = CheckPatchChanges([]Permission{PFS("~rpc.test"), PFS("rpc.*")}, []Permission{PFS("~rpc.test")}, []Permission{PFS("rpc.*")})
 	if err == nil {
 		t.Error("Expected error, got nil")
 	}
 
-	err = CheckPatchChanges([]string{"~rpc.test", "rpc.*"}, []string{"~rpc.test"}, []string{"rpc.*", "~rpc.test", "~rpc.test2"})
+	err = CheckPatchChanges([]Permission{PFS("~rpc.test"), PFS("rpc.*")}, []Permission{PFS("~rpc.test")}, PFSS([]string{"rpc.*", "~rpc.test", "~rpc.test2"}))
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
 
-	err = CheckPatchChanges([]string{"~rpc.test", "rpc.*"}, []string{"~rpc.test"}, []string{"rpc.*", "~rpc.test2", "~rpc.test2"})
+	err = CheckPatchChanges([]Permission{PFS("~rpc.test"), PFS("rpc.*")}, []Permission{PFS("~rpc.test")}, PFSS([]string{"rpc.*", "~rpc.test2", "~rpc.test2"}))
 	if err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
 
-func equal(a, b []string) bool {
+func equal[T comparable](a, b []T) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -301,4 +302,3 @@ func equal(a, b []string) bool {
 	}
 	return true
 }
-
