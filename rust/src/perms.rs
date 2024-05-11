@@ -230,7 +230,7 @@ pub fn has_perm(perms: &[Permission], perm: &Permission) -> bool {
             has_perm = Some(user_perm);
 
             if user_perm.negator {
-                has_negator = true; // While we can optimize here by returning false, we may want to add more negation systems in the future
+                has_negator = true;
             }
         }
     }
