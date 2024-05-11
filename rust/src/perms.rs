@@ -248,11 +248,6 @@ pub fn has_perm_str(perms: &[String], perm: &str) -> bool {
     has_perm(&perms, &perm)
 }
 
-/// Builds a permission string from a namespace and permission
-pub fn build(namespace: &str, perm: &str) -> String {
-    format!("{}.{}", namespace, perm)
-}
-
 /// Checks whether or not a resolved set of permissions allows the addition or removal of a permission to a position
 pub fn check_patch_changes(
     manager_perms: &[Permission],
@@ -305,6 +300,26 @@ pub fn check_patch_changes(
     }
 
     Ok(())
+}
+
+pub fn check_patch_changes_str(
+    manager_perms: &[String],
+    current_perms: &[String],
+    new_perms: &[String],
+) -> Result<(), crate::Error> {
+    let manager_perms = manager_perms
+        .iter()
+        .map(|x| Permission::from_string(x))
+        .collect::<Vec<Permission>>();
+    let current_perms = current_perms
+        .iter()
+        .map(|x| Permission::from_string(x))
+        .collect::<Vec<Permission>>();
+    let new_perms = new_perms
+        .iter()
+        .map(|x| Permission::from_string(x))
+        .collect::<Vec<Permission>>();
+    check_patch_changes(&manager_perms, &current_perms, &new_perms)
 }
 
 #[cfg(test)]

@@ -1,11 +1,4 @@
 /**/target
-
-
-# Added by cargo
-#
-# already existing elements were commented out
-
-#/target
 /**/modules.xml
 /**/workspace.xml
 /**/.idea/
@@ -13,3 +6,4 @@
 /**/vcs.xml
 /ts/node_modules
 /ts/dist
+.vscode

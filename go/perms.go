@@ -257,8 +257,9 @@ func HasPerm(perms []Permission, perm Permission) bool {
 		if (userPerm.Namespace == perm.Namespace ||
 			userPerm.Namespace == "global") &&
 			(userPerm.Perm == "*" || userPerm.Perm == perm.Perm) {
-			// We have to check for all negator
+			// We have to check for negator
 			hasPerm = true
+
 			if userPerm.Negator {
 				hasNegator = true // While we can optimize here by returning false, we may want to add more negation systems in the future
 			}
@@ -269,11 +270,6 @@ func HasPerm(perms []Permission, perm Permission) bool {
 
 func HasPermString(perms []string, perm string) bool {
 	return HasPerm(PFSS(perms), PFS(perm))
-}
-
-// Builds a permission string from a namespace and permission
-func Build(namespace, perm string) string {
-	return fmt.Sprintf("%s.%s", namespace, perm)
 }
 
 // Checks whether or not a resolved set of permissions allows the addition or removal of a permission to a position
@@ -320,4 +316,8 @@ func CheckPatchChanges(managerPerms, currentPerms, newPerms []Permission) error 
 		}
 	}
 	return nil
+}
+
+func CheckPatchChangesString(managerPerms, currentPerms, newPerms []string) error {
+	return CheckPatchChanges(PFSS(managerPerms), PFSS(currentPerms), PFSS(newPerms))
 }

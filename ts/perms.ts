@@ -122,6 +122,9 @@ class PermissionMap {
     }
 }
 
+/**
+ * A class that represents the permissions of a user
+ */
 export class StaffPermissions {
 	user_positions: PartialStaffPosition[];
 	perm_overrides: Permission[];
@@ -134,6 +137,11 @@ export class StaffPermissions {
 		this.perm_overrides = perm_overrides;
 	}
 
+    /**
+     * Resolves the permissions of the user given their positions and permission overrides
+     * 
+     * @returns The resolved permissions of the user
+     */
 	resolve(): Permission[] {
 		const applied_perms_val = new PermissionMap();
 		let user_positions = [...this.user_positions];
@@ -243,9 +251,13 @@ export class StaffPermissions {
 	}
 }
 
-// Check if the user has a permission given a set of user permissions and a permission to check for
-//
-// This assumes a resolved set of permissions
+/**
+ * Check if the user has a permission given a set of user permissions and a permission to check for
+ * 
+ * @param perms The resolved permissions of the user
+ * @param perm The permission to check for
+ * @returns 
+ */
 export function hasPerm(perms: Permission[], perm: Permission): boolean {
 	let has_perm = null;
 	let has_negator = false;
@@ -271,16 +283,20 @@ export function hasPerm(perms: Permission[], perm: Permission): boolean {
 	return !!has_perm && !has_negator;
 }
 
+/**
+ * Same as hasPerm, but takes in string arrays instead of Permission arrays
+ */
 export function hasPermString(perms: string[], perm: string): boolean {
     return hasPerm(Permission.fromList(perms), Permission.from(perm));
 }
 
-// Builds a permission string from a namespace and permission
-export function build(namespace: string, perm: string): string {
-	return `${namespace}.${perm}`;
-}
-
-// Checks whether or not a resolved set of permissions allows the addition or removal of a permission to a position
+/**
+ * Checks whether or not a resolved set of permissions allows the addition or removal of a permission to a position
+ * 
+ * @param managerPerms The permissions of the manager
+ * @param currentPerms The current permissions of the user (must be resolved)
+ * @param newPerms The new permissions of the user (must be resolved)
+ */
 export function checkPatchChanges(
 	managerPerms: Permission[],
 	currentPerms: Permission[],
@@ -335,4 +351,15 @@ export function checkPatchChanges(
 			}
 		}
 	}
+}
+
+/**
+ * Same as checkPatchChanges, but takes in string arrays instead of Permission arrays
+ */
+export function checkPatchChangesString(
+    managerPerms: string[],
+    currentPerms: string[],
+    newPerms: string[],
+): void {
+    checkPatchChanges(Permission.fromList(managerPerms), Permission.fromList(currentPerms), Permission.fromList(newPerms));
 }
