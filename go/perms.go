@@ -267,6 +267,10 @@ func HasPerm(perms []Permission, perm Permission) bool {
 	return hasPerm && !hasNegator
 }
 
+func HasPermString(perms []string, perm string) bool {
+	return HasPerm(PFSS(perms), PFS(perm))
+}
+
 // Builds a permission string from a namespace and permission
 func Build(namespace, perm string) string {
 	return fmt.Sprintf("%s.%s", namespace, perm)
