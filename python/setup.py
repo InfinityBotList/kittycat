@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="kittycat",
-    version="1.0",
+    name="infinitybots-kittycat",
+    version="1.1",
     packages=find_packages(),
 )
