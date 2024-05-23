@@ -148,6 +148,7 @@ struct string *permission_list_join(struct PermissionList *pl, char *sep)
             struct string *new_joined_sep = string_concat(new_joined, sep_str);
             string_free(sep_str);
             string_free(joined);
+            string_free(new_joined);
             joined = new_joined_sep;
         }
         else
