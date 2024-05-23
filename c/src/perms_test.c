@@ -13,12 +13,12 @@ int check_permchecking(char *perm)
     }
     else
     {
-        struct string *fp = permission_to_str(p);
+        char *fp = permission_to_str(p);
         printf("Namespace: %s\n", p->namespace->str);
         printf("Perm: %s\n", p->perm->str);
         printf("Negator: %d\n", p->negator);
-        printf("Final permission: %s\n", fp->str);
-        string_free(fp);
+        printf("Final permission: %s\n", fp);
+        free(fp);
     }
 
     permission_free(p);
@@ -43,7 +43,7 @@ bool has_perm_test_impl(char **str, char *perm, size_t len)
     struct Permission *p = permission_from_str(perm_str);
     struct string *permlist_joined = permission_list_join(perms, ", ");
 
-    printf("Checking permission: %s against [%s] (len=%d)\n", perm_str->str, permlist_joined->str, perms->len);
+    printf("Checking permission: %s against [%s] (len=%zu)\n", perm_str->str, permlist_joined->str, perms->len);
 
     bool res = has_perm(perms, p);
 

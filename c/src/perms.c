@@ -335,14 +335,15 @@ void __permission_with_counts_free(struct __PermissionWithCounts *pwc)
 
 struct __OrderedPermissionMap
 {
-    struct map *map;
+    struct hashmap *map;
     struct Permission **order;
+    size_t len;
 };
 
 uint64_t __permissionwc_hash(const void *item, uint64_t seed0, uint64_t seed1)
 {
     const struct __PermissionWithCounts *p = item;
-    const char *perm_str = permission_to_str(p->perm);
+    char *perm_str = permission_to_str(p->perm);
     uint64_t hash = hashmap_sip(perm_str, strlen(perm_str), seed0, seed1);
     free(perm_str);
     return hash;
@@ -353,8 +354,8 @@ int __permissionwc_compare(const void *a, const void *b, void *udata)
     const struct __PermissionWithCounts *pa = a;
     const struct __PermissionWithCounts *pb = b;
 
-    const char *pa_str = permission_to_str(pa->perm);
-    const char *pb_str = permission_to_str(pb->perm);
+    char *pa_str = permission_to_str(pa->perm);
+    char *pb_str = permission_to_str(pb->perm);
 
     int cmp = strcmp(pa_str, pb_str);
 
@@ -382,8 +383,31 @@ void __ordered_permission_map_free(struct __OrderedPermissionMap *opm)
 void __ordered_permission_map_set(struct __OrderedPermissionMap *opm, struct __PermissionWithCounts *p)
 {
     hashmap_set(opm->map, p);
-    opm->order = realloc(opm->order, (hashmap_count(opm->map) * sizeof(struct Permission *)));
-    opm->order[hashmap_count(opm->map)] = p;
+    opm->len = hashmap_count(opm->map);
+    opm->order = realloc(opm->order, (opm->len * sizeof(struct Permission *)));
+    opm->order[opm->len] = p->perm;
+}
+
+struct __PermissionWithCounts *__ordered_permission_map_get(struct __OrderedPermissionMap *opm, struct Permission *perm)
+{
+    struct __PermissionWithCounts *pwc = hashmap_get(opm->map, perm);
+    return pwc == NULL ? NULL : __permission_with_counts_copy(pwc);
+}
+
+void __ordered_permission_map_rm(struct __OrderedPermissionMap *opm, struct Permission *perm)
+{
+    struct __PermissionWithCounts *pwc = hashmap_delete(opm->map, perm);
+    __permission_with_counts_free(pwc);
+    opm->len = hashmap_count(opm->map);
+    opm->order = realloc(opm->order, (opm->len * sizeof(struct Permission *)));
+}
+
+void __ordered_permission_map_clear(struct __OrderedPermissionMap *opm)
+{
+    hashmap_clear(opm->map, false);
+    opm->len = 0;
+    free(opm->order);
+    opm->order = malloc(sizeof(struct Permission *));
 }
 
 // NOTE+TODO: This function is not yet implemented fully
