@@ -1,4 +1,5 @@
 #include "kc_string.c"
+#include "hashmap/hashmap.h"
 
 struct Permission
 {
@@ -59,7 +60,7 @@ struct Permission *permission_from_str(struct string *str)
     return p;
 }
 
-struct string *permission_to_str(struct Permission *p)
+char *permission_to_str(struct Permission *p)
 {
     // Permissions are of the form `namespace.perm`
     char *namespace = strndup(p->namespace->str, p->namespace->len);
@@ -78,13 +79,10 @@ struct string *permission_to_str(struct Permission *p)
         snprintf(finalPerm, p->namespace->len + p->perm->len + 2, "%s.%s", namespace, perm);
     }
 
-    struct string *str = string_from_char(finalPerm);
-
     free(namespace);
     free(perm);
-    free(finalPerm);
 
-    return str;
+    return finalPerm;
 }
 
 void permission_free(struct Permission *p)
@@ -139,7 +137,9 @@ struct string *permission_list_join(struct PermissionList *pl, char *sep)
 
     for (size_t i = 0; i < pl->len; i++)
     {
-        struct string *perm_str = permission_to_str(pl->perms[i]);
+        char *perm_chararr = permission_to_str(pl->perms[i]);
+        struct string *perm_str = string_from_char(perm_chararr);
+        free(perm_chararr);
         struct string *new_joined = string_concat(joined, perm_str);
 
         if (i != pl->len - 1)
@@ -202,4 +202,213 @@ bool has_perm(struct PermissionList *perms, struct Permission *perm)
     }
 
     return has_perm && !has_negator;
+}
+
+/* Permission resolution */
+
+struct PartialStaffPosition
+{
+    // The id of the position
+    struct string *id;
+    // The index of the permission. Lower means higher in the list of hierarchy
+    int32_t index;
+    // The preset permissions of this position
+    struct PermissionList *perms;
+};
+
+struct PartialStaffPositionList
+{
+    struct PartialStaffPosition **positions;
+    size_t len;
+};
+
+struct PartialStaffPosition *new_partial_staff_position(char *id, int32_t index, struct PermissionList *perms)
+{
+    struct PartialStaffPosition *p = malloc(sizeof(struct PartialStaffPosition));
+    p->id = string_from_char(id);
+    p->index = index;
+    p->perms = perms;
+    return p;
+}
+
+void partial_staff_position_free(struct PartialStaffPosition *p)
+{
+    string_free(p->id);
+    permission_list_free(p->perms);
+    free(p);
+}
+
+struct PartialStaffPositionList *new_partial_staff_position_list()
+{
+    struct PartialStaffPositionList *pl = malloc(sizeof(struct PartialStaffPositionList));
+    pl->positions = malloc(sizeof(struct PartialStaffPosition *));
+    pl->len = 0;
+    return pl;
+}
+
+void partial_staff_position_list_add(struct PartialStaffPositionList *pl, struct PartialStaffPosition *p)
+{
+    pl->positions = realloc(pl->positions, (pl->len + 1) * sizeof(struct PartialStaffPosition *));
+    pl->positions[pl->len] = p;
+    pl->len++;
+}
+
+void partial_staff_position_list_rm(struct PartialStaffPositionList *pl, size_t i)
+{
+    if (i >= pl->len)
+    {
+        return;
+    }
+
+    partial_staff_position_free(pl->positions[i]);
+
+    for (size_t j = i; j < pl->len - 1; j++)
+    {
+        pl->positions[j] = pl->positions[j + 1];
+    }
+
+    pl->len--;
+    pl->positions = realloc(pl->positions, pl->len * sizeof(struct PartialStaffPosition *));
+}
+
+void partial_staff_position_list_free(struct PartialStaffPositionList *pl)
+{
+    for (size_t i = 0; i < pl->len; i++)
+    {
+        partial_staff_position_free(pl->positions[i]);
+    }
+    free(pl->positions);
+    free(pl);
+}
+
+// A set of permissions for a staff member
+//
+// This is a list of permissions that the user has
+struct StaffPermissions
+{
+    struct PartialStaffPositionList *user_positions;
+    struct PermissionList *perm_overrides;
+};
+
+struct StaffPermissions *new_staff_permissions()
+{
+    struct StaffPermissions *sp = malloc(sizeof(struct StaffPermissions));
+    sp->user_positions = new_partial_staff_position_list();
+    sp->perm_overrides = new_permission_list();
+    return sp;
+}
+
+void staff_permissions_free(struct StaffPermissions *sp)
+{
+    partial_staff_position_list_free(sp->user_positions);
+    permission_list_free(sp->perm_overrides);
+    free(sp);
+}
+
+// Internally used for staff permission resolution
+struct __PermissionWithCounts
+{
+    struct Permission *perm;
+    size_t count;
+};
+
+struct __PermissionWithCounts *__new_permission_with_counts(struct Permission *perm)
+{
+    struct __PermissionWithCounts *pwc = malloc(sizeof(struct __PermissionWithCounts));
+    pwc->perm = perm;
+    pwc->count = 1;
+    return pwc;
+}
+
+struct __PermissionWithCounts *__permission_with_counts_copy(struct __PermissionWithCounts *pwc)
+{
+    struct __PermissionWithCounts *new_pwc = malloc(sizeof(struct __PermissionWithCounts));
+    new_pwc->perm = pwc->perm;
+    new_pwc->count = pwc->count;
+    return new_pwc;
+}
+
+void __permission_with_counts_free(struct __PermissionWithCounts *pwc)
+{
+    free(pwc);
+}
+
+struct __OrderedPermissionMap
+{
+    struct map *map;
+    struct Permission **order;
+};
+
+uint64_t __permissionwc_hash(const void *item, uint64_t seed0, uint64_t seed1)
+{
+    const struct __PermissionWithCounts *p = item;
+    const char *perm_str = permission_to_str(p->perm);
+    uint64_t hash = hashmap_sip(perm_str, strlen(perm_str), seed0, seed1);
+    free(perm_str);
+    return hash;
+}
+
+int __permissionwc_compare(const void *a, const void *b, void *udata)
+{
+    const struct __PermissionWithCounts *pa = a;
+    const struct __PermissionWithCounts *pb = b;
+
+    const char *pa_str = permission_to_str(pa->perm);
+    const char *pb_str = permission_to_str(pb->perm);
+
+    int cmp = strcmp(pa_str, pb_str);
+
+    free(pa_str);
+    free(pb_str);
+
+    return cmp;
+}
+
+struct __OrderedPermissionMap *__new_ordered_permission_map()
+{
+    struct __OrderedPermissionMap *opm = malloc(sizeof(struct __OrderedPermissionMap));
+    opm->map = hashmap_new(sizeof(struct __PermissionWithCounts), 0, 0, 0, __permissionwc_hash, __permissionwc_compare, NULL, NULL);
+    opm->order = malloc(sizeof(struct Permission *));
+    return opm;
+}
+
+void __ordered_permission_map_free(struct __OrderedPermissionMap *opm)
+{
+    hashmap_free(opm->map);
+    free(opm->order);
+    free(opm);
+}
+
+void __ordered_permission_map_set(struct __OrderedPermissionMap *opm, struct __PermissionWithCounts *p)
+{
+    hashmap_set(opm->map, p);
+    opm->order = realloc(opm->order, (hashmap_count(opm->map) * sizeof(struct Permission *)));
+    opm->order[hashmap_count(opm->map)] = p;
+}
+
+// NOTE+TODO: This function is not yet implemented fully
+struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
+{
+    struct __OrderedPermissionMap *opm = __new_ordered_permission_map();
+
+    struct PartialStaffPositionList *userPositions = sp->user_positions;
+
+    // Add the permission overrides as index 0
+    partial_staff_position_list_add(userPositions, new_partial_staff_position("perm_overrides", 0, sp->perm_overrides));
+
+    // Sort the positions by index in descending order
+    for (size_t i = 0; i < userPositions->len; i++)
+    {
+        for (size_t j = i + 1; j < userPositions->len; j++)
+        {
+            if (userPositions->positions[i]->index < userPositions->positions[j]->index)
+            {
+                struct PartialStaffPosition *temp = userPositions->positions[i];
+                userPositions->positions[i] = userPositions->positions[j];
+                userPositions->positions[j] = temp;
+            }
+        }
+    }
+
+    __ordered_permission_map_free(opm);
 }
