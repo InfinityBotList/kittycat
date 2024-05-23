@@ -225,6 +225,19 @@ void permission_list_free(struct PermissionList *pl)
     pl = NULL;
 }
 
+void permission_list_partial_free(struct PermissionList *pl)
+{
+    if (pl == NULL)
+    {
+        return;
+    }
+
+    free(pl->perms);
+    pl->perms = NULL;
+    free(pl);
+    pl = NULL;
+}
+
 bool has_perm(struct PermissionList *perms, struct Permission *perm)
 {
     bool has_perm = false;
@@ -383,42 +396,6 @@ void staff_permissions_free(struct StaffPermissions *sp)
     sp = NULL;
 }
 
-// Internally used for staff permission resolution
-struct __PermissionWithCounts
-{
-    struct Permission *perm;
-    size_t count;
-};
-
-struct __PermissionWithCounts *__new_permission_with_counts(struct Permission *perm, size_t count)
-{
-    struct __PermissionWithCounts *pwc = malloc(sizeof(struct __PermissionWithCounts));
-    pwc->perm = perm;
-    pwc->count = count;
-    return pwc;
-}
-
-struct __PermissionWithCounts *__permission_with_counts_copy(struct __PermissionWithCounts *pwc)
-{
-    struct __PermissionWithCounts *new_pwc = malloc(sizeof(struct __PermissionWithCounts));
-    new_pwc->perm = pwc->perm;
-    new_pwc->count = pwc->count;
-    return new_pwc;
-}
-
-void __permission_with_counts_free(struct __PermissionWithCounts *pwc)
-{
-    // Internal note: this does not free the permission
-
-    // Already freed if NULL
-    if (pwc == NULL)
-    {
-        return;
-    }
-    free(pwc);
-    pwc = NULL;
-}
-
 struct __OrderedPermissionMap
 {
     struct hashmap *map;
@@ -428,8 +405,9 @@ struct __OrderedPermissionMap
 
 uint64_t __permissionwc_hash(const void *item, uint64_t seed0, uint64_t seed1)
 {
-    const struct __PermissionWithCounts *p = item;
-    char *perm_str = permission_to_str(p->perm);
+    const struct Permission *pc = item;
+    struct Permission *p = (struct Permission *)pc;
+    char *perm_str = permission_to_str(p);
     uint64_t hash = hashmap_sip(perm_str, strlen(perm_str), seed0, seed1);
     free(perm_str);
     return hash;
@@ -437,11 +415,13 @@ uint64_t __permissionwc_hash(const void *item, uint64_t seed0, uint64_t seed1)
 
 int __permissionwc_compare(const void *a, const void *b, void *udata)
 {
-    const struct __PermissionWithCounts *pa = a;
-    const struct __PermissionWithCounts *pb = b;
+    const struct Permission *pac = a;
+    const struct Permission *pbc = b;
+    struct Permission *pa = (struct Permission *)pac;
+    struct Permission *pb = (struct Permission *)pbc;
 
-    char *pa_str = permission_to_str(pa->perm);
-    char *pb_str = permission_to_str(pb->perm);
+    char *pa_str = permission_to_str(pa);
+    char *pb_str = permission_to_str(pb);
 
     int cmp = strcmp(pa_str, pb_str);
 
@@ -454,25 +434,25 @@ int __permissionwc_compare(const void *a, const void *b, void *udata)
 struct __OrderedPermissionMap *__new_ordered_permission_map()
 {
     struct __OrderedPermissionMap *opm = malloc(sizeof(struct __OrderedPermissionMap));
-    opm->map = hashmap_new(sizeof(struct __PermissionWithCounts), 0, 0, 0, __permissionwc_hash, __permissionwc_compare, NULL, NULL);
+    opm->map = hashmap_new(sizeof(struct Permission), 0, 0, 0, __permissionwc_hash, __permissionwc_compare, NULL, NULL);
     opm->order = malloc(sizeof(struct Permission *));
     return opm;
 }
 
-struct __PermissionWithCounts *__ordered_permission_map_get(struct __OrderedPermissionMap *opm, struct Permission *perm)
+struct Permission *__ordered_permission_map_get(struct __OrderedPermissionMap *opm, struct Permission *perm)
 {
-    const void *pwc_void = hashmap_get(opm->map, &(struct __PermissionWithCounts){.perm = perm});
+    const void *pwc_void = hashmap_get(opm->map, perm);
     if (pwc_void == NULL)
     {
         return NULL;
     }
-    struct __PermissionWithCounts *pwc = (struct __PermissionWithCounts *)pwc_void;
+    struct Permission *pwc = (struct Permission *)pwc_void;
     return pwc;
 }
 
-struct __PermissionWithCounts *__ordered_permission_map_rm(struct __OrderedPermissionMap *opm, struct Permission *perm)
+struct Permission *__ordered_permission_map_rm(struct __OrderedPermissionMap *opm, struct Permission *perm)
 {
-    const void *pwc_void = hashmap_delete(opm->map, &(struct __PermissionWithCounts){.perm = perm});
+    const void *pwc_void = hashmap_delete(opm->map, perm);
 
     if (pwc_void == NULL)
     {
@@ -480,7 +460,7 @@ struct __PermissionWithCounts *__ordered_permission_map_rm(struct __OrderedPermi
         return NULL;
     }
 
-    struct __PermissionWithCounts *pwc = (struct __PermissionWithCounts *)pwc_void;
+    struct Permission *pwc = (struct Permission *)pwc_void;
     opm->len = hashmap_count(opm->map);
     opm->order = realloc(opm->order, (opm->len * sizeof(struct Permission *)));
     return pwc;
@@ -489,8 +469,7 @@ struct __PermissionWithCounts *__ordered_permission_map_rm(struct __OrderedPermi
 // Delete = rm+free
 void __ordered_permission_map_del(struct __OrderedPermissionMap *opm, struct Permission *perm)
 {
-    struct __PermissionWithCounts *pwc = __ordered_permission_map_rm(opm, perm);
-    __permission_with_counts_free(pwc);
+    __ordered_permission_map_rm(opm, perm);
 }
 
 void __ordered_permission_map_free(struct __OrderedPermissionMap *opm)
@@ -507,12 +486,12 @@ void __ordered_permission_map_free(struct __OrderedPermissionMap *opm)
     opm = NULL;
 }
 
-void __ordered_permission_map_set(struct __OrderedPermissionMap *opm, struct __PermissionWithCounts *p)
+void __ordered_permission_map_set(struct __OrderedPermissionMap *opm, struct Permission *p)
 {
     hashmap_set(opm->map, p);
     opm->len = hashmap_count(opm->map);
     opm->order = realloc(opm->order, (opm->len * sizeof(struct Permission *)));
-    opm->order[opm->len - 1] = p->perm;
+    opm->order[opm->len - 1] = p;
 }
 
 void __ordered_permission_map_clear(struct __OrderedPermissionMap *opm)
@@ -538,7 +517,7 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
         for (size_t j = 0; j < pos->perms->len; j++)
         {
             struct Permission *perm = pos->perms->perms[j];
-            permission_list_add(perms, new_permission(string_clone_chars(perm->namespace), string_clone_chars(perm->perm), perm->negator));
+            permission_list_add(perms, new_permission(perm->namespace->str, perm->perm->str, perm->negator));
         }
         partial_staff_position_list_add(userPositions, new_partial_staff_position(pos->id->str, pos->index, perms));
     }
@@ -549,7 +528,7 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
     for (size_t i = 0; i < sp->perm_overrides->len; i++)
     {
         struct Permission *perm = sp->perm_overrides->perms[i];
-        permission_list_add(permOverrides, new_permission(string_clone_chars(perm->namespace), string_clone_chars(perm->perm), perm->negator));
+        permission_list_add(permOverrides, new_permission(perm->namespace->str, perm->perm->str, perm->negator));
     }
 
     // Add the permission overrides as index 0
@@ -600,6 +579,7 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
                         struct Permission *key = toRemove->perms[k];
                         __ordered_permission_map_del(opm, key);
                     }
+                    permission_list_partial_free(toRemove);
                 }
             }
 
@@ -607,25 +587,25 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
             {
                 // Check what gave the permission. We *know* its sorted so we don't need to do anything but remove if it exists
                 struct Permission *nonNegated = new_permission(perm->namespace->str, perm->perm->str, false);
-                struct __PermissionWithCounts *pwc = __ordered_permission_map_get(opm, nonNegated);
+                struct Permission *pwc = __ordered_permission_map_get(opm, nonNegated);
                 if (pwc != NULL)
                 {
                     // Remove old permission
                     __ordered_permission_map_del(opm, nonNegated);
 
                     // Add the negator
-                    __ordered_permission_map_set(opm, __new_permission_with_counts(perm, pos->index));
+                    __ordered_permission_map_set(opm, perm);
                 }
                 else
                 {
-                    struct __PermissionWithCounts *pwc = __ordered_permission_map_get(opm, perm);
+                    struct Permission *pwc = __ordered_permission_map_get(opm, perm);
                     if (pwc != NULL)
                     {
                         // Case 3: The negator is already applied, so we can ignore it
                         continue;
                     }
                     // Then we can freely add the negator
-                    __ordered_permission_map_set(opm, __new_permission_with_counts(perm, pos->index));
+                    __ordered_permission_map_set(opm, perm);
                 }
 
                 permission_free(nonNegated);
@@ -656,28 +636,29 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
                         struct Permission *key = toRemove->perms[k];
                         __ordered_permission_map_del(opm, key);
                     }
+                    permission_list_partial_free(toRemove);
                 }
                 // If its not a negator, first check if there's a negator
                 struct Permission *negated = new_permission(perm->namespace->str, perm->perm->str, true);
-                struct __PermissionWithCounts *pwc = __ordered_permission_map_get(opm, negated);
+                struct Permission *pwc = __ordered_permission_map_get(opm, negated);
                 if (pwc != NULL)
                 {
                     // Remove old permission
                     __ordered_permission_map_del(opm, negated);
 
                     // Add the permission
-                    __ordered_permission_map_set(opm, __new_permission_with_counts(perm, pos->index));
+                    __ordered_permission_map_set(opm, perm);
                 }
                 else
                 {
-                    struct __PermissionWithCounts *pwc = __ordered_permission_map_get(opm, perm);
+                    struct Permission *pwc = __ordered_permission_map_get(opm, perm);
                     if (pwc != NULL)
                     {
                         // Case 3: The permission is already applied, so we can ignore it
                         continue;
                     }
                     // Then we can freely add the permission
-                    __ordered_permission_map_set(opm, __new_permission_with_counts(perm, pos->index));
+                    __ordered_permission_map_set(opm, perm);
                 }
 
                 permission_free(negated);
@@ -691,7 +672,7 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
     {
         struct Permission *perm = opm->order[i];
         // Copy the permission
-        struct Permission *new_perm = new_permission(string_clone_chars(perm->namespace), string_clone_chars(perm->perm), perm->negator);
+        struct Permission *new_perm = new_permission(perm->namespace->str, perm->perm->str, perm->negator);
         permission_list_add(appliedPerms, new_perm);
     }
 
@@ -699,6 +680,21 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
     struct string *appliedPermsStr = permission_list_join(appliedPerms, ", ");
     printf("Applied perms: %s with hashmap: %p\n", appliedPermsStr->str, opm->map);
 #endif
+
+    // Clear all perms with this namespace
+    struct PermissionList *toRemove = new_permission_list();
+    for (size_t k = 0; k < opm->len; k++)
+    {
+        struct Permission *key = opm->order[k];
+        permission_list_add(toRemove, key);
+    }
+
+    for (size_t k = 0; k < toRemove->len; k++)
+    {
+        struct Permission *key = toRemove->perms[k];
+        __ordered_permission_map_del(opm, key);
+    }
+    permission_list_partial_free(toRemove);
 
     __ordered_permission_map_free(opm);
     partial_staff_position_list_free(userPositions);
