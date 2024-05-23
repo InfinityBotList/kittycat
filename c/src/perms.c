@@ -69,12 +69,12 @@ struct string *permission_to_str(struct Permission *p)
 
     if (p->negator)
     {
-        finalPerm = malloc(p->namespace->len + p->perm->len + 2);
+        finalPerm = malloc(p->namespace->len + p->perm->len + 3);
         snprintf(finalPerm, p->namespace->len + p->perm->len + 3, "~%s.%s", namespace, perm);
     }
     else
     {
-        finalPerm = malloc(p->namespace->len + p->perm->len + 1);
+        finalPerm = malloc(p->namespace->len + p->perm->len + 2);
         snprintf(finalPerm, p->namespace->len + p->perm->len + 2, "%s.%s", namespace, perm);
     }
 
