@@ -257,7 +257,7 @@ func HasPerm(perms []Permission, perm Permission) bool {
 			hasPerm = true
 
 			if userPerm.Negator {
-				hasNegator = true // While we can optimize here by returning false, we may want to add more negation systems in the future
+				hasNegator = true
 			}
 		}
 	}

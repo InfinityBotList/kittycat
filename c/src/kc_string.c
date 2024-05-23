@@ -102,7 +102,6 @@ void string_arr_free(struct string **arr, const size_t n)
 
 bool string_is_empty(struct string *s)
 {
-    printf("String is empty called\n");
     return s == NULL || s->len == 0 || s->str == NULL;
 }
 
@@ -116,11 +115,15 @@ bool string_is_equal(struct string *s1, struct string *s2)
     return strcmp(s1->str, s2->str) == 0;
 }
 
+bool string_is_equal_char(struct string *s, const char *c)
+{
+    return strcmp(s->str, c) == 0;
+}
+
 bool string_contains(struct string *s, const char c)
 {
     for (size_t i = 0; i < s->len; i++)
     {
-        printf("%c\n", s->str[i]);
         if (s->str[i] == c)
         {
             return true;

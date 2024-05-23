@@ -93,3 +93,112 @@ void permission_free(struct Permission *p)
     string_free(p->perm);
     free(p);
 }
+
+struct PermissionList
+{
+    struct Permission **perms;
+    size_t len;
+};
+
+struct PermissionList *new_permission_list()
+{
+    struct PermissionList *pl = malloc(sizeof(struct PermissionList));
+    pl->perms = malloc(sizeof(struct Permission *));
+    pl->len = 0;
+    return pl;
+}
+
+void permission_list_add(struct PermissionList *pl, struct Permission *perm)
+{
+    pl->perms = realloc(pl->perms, (pl->len + 1) * sizeof(struct Permission *));
+    pl->perms[pl->len] = perm;
+    pl->len++;
+}
+
+void permission_list_rm(struct PermissionList *pl, size_t i)
+{
+    if (i >= pl->len)
+    {
+        return;
+    }
+
+    permission_free(pl->perms[i]);
+
+    for (size_t j = i; j < pl->len - 1; j++)
+    {
+        pl->perms[j] = pl->perms[j + 1];
+    }
+
+    pl->len--;
+    pl->perms = realloc(pl->perms, pl->len * sizeof(struct Permission *));
+}
+
+struct string *permission_list_join(struct PermissionList *pl, char *sep)
+{
+    struct string *joined = new_string("", 0);
+
+    for (size_t i = 0; i < pl->len; i++)
+    {
+        struct string *perm_str = permission_to_str(pl->perms[i]);
+        struct string *new_joined = string_concat(joined, perm_str);
+
+        if (i != pl->len - 1)
+        {
+            struct string *sep_str = new_string(sep, strlen(sep));
+            struct string *new_joined_sep = string_concat(new_joined, sep_str);
+            string_free(sep_str);
+            string_free(joined);
+            joined = new_joined_sep;
+        }
+        else
+        {
+            string_free(joined);
+            joined = new_joined;
+        }
+
+        string_free(perm_str);
+    }
+
+    return joined;
+}
+
+void permission_list_free(struct PermissionList *pl)
+{
+    for (size_t i = 0; i < pl->len; i++)
+    {
+        permission_free(pl->perms[i]);
+    }
+    free(pl->perms);
+    free(pl);
+}
+
+bool has_perm(struct PermissionList *perms, struct Permission *perm)
+{
+    bool has_perm = false;
+    bool has_negator = false;
+
+    for (size_t i = 0; i < perms->len; i++)
+    {
+        struct Permission *user_perm = perms->perms[i];
+
+        // Special case of global.*
+        if (!user_perm->negator && string_is_equal_char(user_perm->namespace, "global") && string_is_equal_char(user_perm->perm, "*"))
+        {
+            return true;
+        }
+
+        if ((string_is_equal(user_perm->namespace, perm->namespace) || string_is_equal_char(user_perm->namespace, "global")) &&
+            (string_is_equal_char(user_perm->perm, "*") || string_is_equal(user_perm->perm, perm->perm)))
+        {
+            // We have to check for negator
+            has_perm = true;
+
+            if (user_perm->negator)
+            {
+                has_negator = true;
+            }
+        }
+    }
+
+    return has_perm && !has_negator;
+}
