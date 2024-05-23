@@ -30,6 +30,18 @@ struct string *string_from_char(char *str)
     return new_string(str, len);
 }
 
+// Clone a string
+struct string *string_clone(struct string *s)
+{
+    return new_string(s->str, s->len);
+}
+
+// Clone the chars of a string
+char *string_clone_chars(struct string *s)
+{
+    return strndup(s->str, s->len);
+}
+
 struct string *string_substr(struct string *s, const size_t start, const size_t end)
 {
     size_t len = end - start;

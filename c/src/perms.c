@@ -209,11 +209,18 @@ void permission_list_free(struct PermissionList *pl)
         return;
     }
 
-    for (size_t i = 0; i < pl->len; i++)
+    if (pl->perms != NULL)
     {
-        permission_free(pl->perms[i]);
+        for (size_t i = 0; i < pl->len; i++)
+        {
+            permission_free(pl->perms[i]);
+            pl->perms[i] = NULL;
+        }
+
+        free(pl->perms);
+        pl->perms = NULL;
     }
-    free(pl->perms);
+
     free(pl);
     pl = NULL;
 }
@@ -278,9 +285,15 @@ struct PartialStaffPosition *new_partial_staff_position(char *id, int32_t index,
 
 void partial_staff_position_free(struct PartialStaffPosition *p)
 {
+    // Already freed if NULL
+    if (p == NULL)
+    {
+        return;
+    }
     string_free(p->id);
     permission_list_free(p->perms);
     free(p);
+    p = NULL;
 }
 
 struct PartialStaffPositionList *new_partial_staff_position_list()
@@ -318,12 +331,19 @@ void partial_staff_position_list_rm(struct PartialStaffPositionList *pl, size_t 
 
 void partial_staff_position_list_free(struct PartialStaffPositionList *pl)
 {
+    if (pl == NULL)
+    {
+        return;
+    }
     for (size_t i = 0; i < pl->len; i++)
     {
         partial_staff_position_free(pl->positions[i]);
+        pl->positions[i] = NULL;
     }
     free(pl->positions);
+    pl->positions = NULL;
     free(pl);
+    pl = NULL;
 }
 
 // A set of permissions for a staff member
@@ -345,9 +365,22 @@ struct StaffPermissions *new_staff_permissions()
 
 void staff_permissions_free(struct StaffPermissions *sp)
 {
-    partial_staff_position_list_free(sp->user_positions);
-    permission_list_free(sp->perm_overrides);
+    // Already freed if NULL
+    if (sp == NULL)
+    {
+        return;
+    }
+
+    if (sp->user_positions != NULL)
+    {
+        partial_staff_position_list_free(sp->user_positions);
+    }
+    if (sp->perm_overrides != NULL)
+    {
+        permission_list_free(sp->perm_overrides);
+    }
     free(sp);
+    sp = NULL;
 }
 
 // Internally used for staff permission resolution
@@ -453,6 +486,13 @@ struct __PermissionWithCounts *__ordered_permission_map_rm(struct __OrderedPermi
     return pwc;
 }
 
+// Delete = rm+free
+void __ordered_permission_map_del(struct __OrderedPermissionMap *opm, struct Permission *perm)
+{
+    struct __PermissionWithCounts *pwc = __ordered_permission_map_rm(opm, perm);
+    __permission_with_counts_free(pwc);
+}
+
 void __ordered_permission_map_free(struct __OrderedPermissionMap *opm)
 {
     // Already freed if NULL
@@ -488,10 +528,32 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
 {
     struct __OrderedPermissionMap *opm = __new_ordered_permission_map();
 
-    struct PartialStaffPositionList *userPositions = sp->user_positions;
+    struct PartialStaffPositionList *userPositions = new_partial_staff_position_list();
+
+    // Take copy of the user positions
+    for (size_t i = 0; i < sp->user_positions->len; i++)
+    {
+        struct PartialStaffPosition *pos = sp->user_positions->positions[i];
+        struct PermissionList *perms = new_permission_list();
+        for (size_t j = 0; j < pos->perms->len; j++)
+        {
+            struct Permission *perm = pos->perms->perms[j];
+            permission_list_add(perms, new_permission(string_clone_chars(perm->namespace), string_clone_chars(perm->perm), perm->negator));
+        }
+        partial_staff_position_list_add(userPositions, new_partial_staff_position(pos->id->str, pos->index, perms));
+    }
+
+    struct PermissionList *permOverrides = new_permission_list();
+
+    // Take copy of the perm overrides
+    for (size_t i = 0; i < sp->perm_overrides->len; i++)
+    {
+        struct Permission *perm = sp->perm_overrides->perms[i];
+        permission_list_add(permOverrides, new_permission(string_clone_chars(perm->namespace), string_clone_chars(perm->perm), perm->negator));
+    }
 
     // Add the permission overrides as index 0
-    partial_staff_position_list_add(userPositions, new_partial_staff_position("perm_overrides", 0, sp->perm_overrides));
+    partial_staff_position_list_add(userPositions, new_partial_staff_position("perm_overrides", 0, permOverrides));
 
     // Sort the positions by index in descending order
     for (size_t i = 0; i < userPositions->len; i++)
@@ -536,8 +598,7 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
                     for (size_t k = 0; k < toRemove->len; k++)
                     {
                         struct Permission *key = toRemove->perms[k];
-                        struct __PermissionWithCounts *pwc = __ordered_permission_map_rm(opm, key);
-                        __permission_with_counts_free(pwc);
+                        __ordered_permission_map_del(opm, key);
                     }
                 }
             }
@@ -547,12 +608,10 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
                 // Check what gave the permission. We *know* its sorted so we don't need to do anything but remove if it exists
                 struct Permission *nonNegated = new_permission(perm->namespace->str, perm->perm->str, false);
                 struct __PermissionWithCounts *pwc = __ordered_permission_map_get(opm, nonNegated);
-                permission_free(nonNegated);
                 if (pwc != NULL)
                 {
                     // Remove old permission
-                    struct __PermissionWithCounts *pwc = __ordered_permission_map_rm(opm, nonNegated);
-                    __permission_with_counts_free(pwc);
+                    __ordered_permission_map_del(opm, nonNegated);
 
                     // Add the negator
                     __ordered_permission_map_set(opm, __new_permission_with_counts(perm, pos->index));
@@ -568,6 +627,8 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
                     // Then we can freely add the negator
                     __ordered_permission_map_set(opm, __new_permission_with_counts(perm, pos->index));
                 }
+
+                permission_free(nonNegated);
             }
             else
             {
@@ -593,19 +654,17 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
                     for (size_t k = 0; k < toRemove->len; k++)
                     {
                         struct Permission *key = toRemove->perms[k];
-                        struct __PermissionWithCounts *pwc = __ordered_permission_map_rm(opm, key);
-                        __permission_with_counts_free(pwc);
+                        __ordered_permission_map_del(opm, key);
                     }
                 }
                 // If its not a negator, first check if there's a negator
                 struct Permission *negated = new_permission(perm->namespace->str, perm->perm->str, true);
                 struct __PermissionWithCounts *pwc = __ordered_permission_map_get(opm, negated);
-                permission_free(negated);
                 if (pwc != NULL)
                 {
                     // Remove old permission
-                    struct __PermissionWithCounts *pwc = __ordered_permission_map_rm(opm, negated);
-                    __permission_with_counts_free(pwc);
+                    __ordered_permission_map_del(opm, negated);
+
                     // Add the permission
                     __ordered_permission_map_set(opm, __new_permission_with_counts(perm, pos->index));
                 }
@@ -620,6 +679,8 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
                     // Then we can freely add the permission
                     __ordered_permission_map_set(opm, __new_permission_with_counts(perm, pos->index));
                 }
+
+                permission_free(negated);
             }
         }
     }
@@ -630,7 +691,8 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
     {
         struct Permission *perm = opm->order[i];
         // Copy the permission
-        permission_list_add(appliedPerms, perm);
+        struct Permission *new_perm = new_permission(string_clone_chars(perm->namespace), string_clone_chars(perm->perm), perm->negator);
+        permission_list_add(appliedPerms, new_perm);
     }
 
 #ifdef DEBUG
@@ -639,6 +701,7 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
 #endif
 
     __ordered_permission_map_free(opm);
+    partial_staff_position_list_free(userPositions);
 
     return appliedPerms;
 }

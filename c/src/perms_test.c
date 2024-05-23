@@ -176,7 +176,7 @@ bool sp_resolve_test_impl(struct StaffPermissions *sp, struct PermissionList *ex
     permission_list_free(expected_perms);
     string_free(expected_perms_str);
     string_free(perms_str);
-    // staff_permissions_free(sp);
+    staff_permissions_free(sp);
 
     return res;
 }
