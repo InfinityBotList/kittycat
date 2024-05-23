@@ -36,3 +36,11 @@ A permission can be added/managed by a user to a position if the following appli
 - If the permission is `*`, then the user has no negators in that namespace that the target perm set would not also have
 
 Note on point 2: this means that if a user is trying to add/remove `rpc.*` but also has `~rpc.test`, then they cannot add `rpc.*` unless the target user also has `~rpc.test`
+
+## Supported Languages
+
+- rust
+- go
+- typescript
+- python
+- C (WIP, does not work yet)

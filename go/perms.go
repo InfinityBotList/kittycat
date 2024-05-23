@@ -1,8 +1,4 @@
-// Port of https://github.com/InfinityBotList/kittycat/blob/main/src/perms.rs
-
 package perms
-
-// AI-converted from https://www.codeconvert.ai/app with some manual fixes
 
 import (
 	"fmt"
