@@ -88,8 +88,12 @@ size_t string_length(struct string *s)
 
 void string_free(struct string *s)
 {
+    // Already freed if NULL
+    if (s == NULL)
+        return;
     free(s->str); // Free the string
     free(s);
+    s = NULL;
 }
 
 void string_arr_free(struct string **arr, const size_t n)

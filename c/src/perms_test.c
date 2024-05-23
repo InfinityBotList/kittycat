@@ -1,6 +1,6 @@
 #include "perms.c"
 
-int check_permchecking(char *perm)
+int deconstruct_permission__test(char *perm)
 {
     struct string *perm_str = string_from_char(perm);
     struct Permission *p = permission_from_str(perm_str);
@@ -16,7 +16,7 @@ int check_permchecking(char *perm)
         char *fp = permission_to_str(p);
         printf("Namespace: %s\n", p->namespace->str);
         printf("Perm: %s\n", p->perm->str);
-        printf("Negator: %d\n", p->negator);
+        printf("Negator: %s\n", p->negator ? "true" : "false");
         printf("Final permission: %s\n", fp);
         free(fp);
     }
@@ -30,7 +30,7 @@ bool has_perm_test_impl(char **str, char *perm, size_t len)
 {
     struct PermissionList *perms = new_permission_list();
 
-    for (int i = 0; i < len; i++)
+    for (size_t i = 0; i < len; i++)
     {
         struct string *perm_str = string_from_char(str[i]);
         struct Permission *p = permission_from_str(perm_str);
@@ -55,73 +55,8 @@ bool has_perm_test_impl(char **str, char *perm, size_t len)
     return res;
 }
 
-int main()
+int has_perm__test()
 {
-    printf("Running tests: %s...\n", ":)");
-
-    char *checks[] = {"bar", "global.bar", "bot.foo", "~bot.foo"};
-
-    for (int i = 0; i < 4; i++)
-    {
-        check_permchecking(checks[i]);
-    }
-
-    /*
-    func TestHasPerm(t *testing.T) {
-        if !HasPerm(PFSS([]string{"global.*"}), PFS("test")) {
-            t.Error("Expected true, got false")
-        }
-        if HasPerm(PFSS([]string{"rpc.*"}), PFS("global.*")) {
-            t.Error("Expected false, got true")
-        }
-        if !HasPerm(PFSS([]string{"global.test"}), PFS("rpc.test")) {
-            t.Error("Expected true, got false")
-        }
-        if HasPerm(PFSS([]string{"global.test"}), PFS("rpc.view_bot_queue")) {
-            t.Error("Expected false, got true")
-        }
-        if !HasPerm(PFSS([]string{"global.*"}), PFS("rpc.view_bot_queue")) {
-            t.Error("Expected true, got false")
-        }
-        if !HasPerm(PFSS([]string{"rpc.*"}), PFS("rpc.ViewBotQueue")) {
-            t.Error("Expected true, got false")
-        }
-        if HasPerm(PFSS([]string{"rpc.BotClaim"}), PFS("rpc.ViewBotQueue")) {
-            t.Error("Expected false, got true")
-        }
-        if HasPerm(PFSS([]string{"apps.*"}), PFS("rpc.ViewBotQueue")) {
-            t.Error("Expected false, got true")
-        }
-        if HasPerm(PFSS([]string{"apps.*"}), PFS("rpc.*")) {
-            t.Error("Expected false, got true")
-        }
-        if HasPerm(PFSS([]string{"apps.test"}), PFS("rpc.test")) {
-            t.Error("Expected false, got true")
-        }
-        if !HasPerm(PFSS([]string{"apps.*"}), PFS("apps.test")) {
-            t.Error("Expected true, got false")
-        }
-        if HasPerm(PFSS([]string{"~apps.*"}), PFS("apps.test")) {
-            t.Error("Expected false, got true")
-        }
-        if HasPerm(PFSS([]string{"apps.*", "~apps.test"}), PFS("apps.test")) {
-            t.Error("Expected false, got true")
-        }
-        if HasPerm(PFSS([]string{"~apps.test", "apps.*"}), PFS("apps.test")) {
-            t.Error("Expected false, got true")
-        }
-        if !HasPerm(PFSS([]string{"apps.test"}), PFS("apps.test")) {
-            t.Error("Expected true, got false")
-        }
-        if !HasPerm(PFSS([]string{"apps.test", "apps.*"}), PFS("apps.test")) {
-            t.Error("Expected true, got false")
-        }
-        if !HasPerm(PFSS([]string{"~apps.test", "global.*"}), PFS("apps.test")) {
-            t.Error("Expected true, got false")
-        }
-    }
-    */
-
     if (!has_perm_test_impl((char *[]){"global.*"}, "test", 1))
     {
         printf("Expected true, got false\n");
@@ -222,6 +157,273 @@ int main()
     {
         printf("Expected true, got false\n");
         return 1;
+    }
+
+    return 0;
+}
+
+bool sp_resolve_test_impl(struct StaffPermissions *sp, struct PermissionList *expected_perms)
+{
+    struct PermissionList *perms = staff_permissions_resolve(sp);
+
+    struct string *expected_perms_str = permission_list_join(expected_perms, ", ");
+    struct string *perms_str = permission_list_join(perms, ", ");
+    bool res = permission_lists_equal(perms, expected_perms);
+
+    printf("Expected: [%s], got [%s], isEqual=%s\n", expected_perms_str->str, perms_str->str, res ? "true" : "false");
+
+    permission_list_free(perms);
+    permission_list_free(expected_perms);
+    string_free(expected_perms_str);
+    string_free(perms_str);
+    // staff_permissions_free(sp);
+
+    return res;
+}
+
+// TODO: Finish porting all tests
+int sp_resolve__test()
+{
+    /*
+    func TestResolvePerms(t *testing.T) {
+        // Test for basic resolution of overrides
+        expected := []Permission{PFS("rpc.test")}
+        result := StaffPermissions{
+            UserPositions: []PartialStaffPosition{},
+            PermOverrides: []Permission{PFS("rpc.test")},
+        }.Resolve()
+        if !equal(result, expected) {
+            t.Errorf("Expected %v, got %v", expected, result)
+        }
+
+        // Test for basic resolution of single position
+        expected = []Permission{PFS("rpc.test")}
+        result = StaffPermissions{
+            UserPositions: []PartialStaffPosition{
+                {
+                    ID:    "test",
+                    Index: 1,
+                    Perms: []Permission{PFS("rpc.test")},
+                },
+            },
+            PermOverrides: []Permission{},
+        }.Resolve()
+        if !equal(result, expected) {
+            t.Errorf("Expected %v, got %v", expected, result)
+        }
+
+        // Test for basic resolution of multiple positions
+        expected = []Permission{PFS("rpc.test2"), PFS("rpc.test")}
+        result = StaffPermissions{
+            UserPositions: []PartialStaffPosition{
+                {
+                    ID:    "test",
+                    Index: 1,
+                    Perms: []Permission{PFS("rpc.test")},
+                },
+                {
+                    ID:    "test2",
+                    Index: 2,
+                    Perms: []Permission{PFS("rpc.test2")},
+                },
+            },
+            PermOverrides: []Permission{},
+        }.Resolve()
+        if !equal(result, expected) {
+            t.Errorf("Expected %v, got %v", expected, result)
+        }
+
+        // Test for basic resolution of multiple positions with negators
+        expected = []Permission{PFS("~rpc.test3"), PFS("rpc.test"), PFS("rpc.test2")}
+        result = StaffPermissions{
+            UserPositions: []PartialStaffPosition{
+                {
+                    ID:    "test",
+                    Index: 1,
+                    Perms: []Permission{PFS("rpc.test"), PFS("rpc.test2")},
+                },
+                {
+                    ID:    "test2",
+                    Index: 2,
+                    Perms: []Permission{PFS("~rpc.test"), PFS("~rpc.test3")},
+                },
+            },
+            PermOverrides: []Permission{},
+        }.Resolve()
+        if !equal(result, expected) {
+            t.Errorf("Expected %v, got %v", expected, result)
+        }
+
+        // Same as above but testing negator ordering
+        expected = []Permission{PFS("~rpc.test3"), PFS("~rpc.test"), PFS("rpc.test2")}
+        result = StaffPermissions{
+            UserPositions: []PartialStaffPosition{
+                {
+                    ID:    "test",
+                    Index: 1,
+                    Perms: []Permission{PFS("~rpc.test"), PFS("rpc.test2")},
+                },
+                {
+                    ID:    "test2",
+                    Index: 2,
+                    Perms: []Permission{PFS("~rpc.test3"), PFS("rpc.test")},
+                },
+            },
+            PermOverrides: []Permission{},
+        }.Resolve()
+        if !equal(result, expected) {
+            t.Errorf("Expected %v, got %v", expected, result)
+        }
+
+        // Now mix everything together
+        expected = []Permission{PFS("rpc.test2"), PFS("rpc.test3"), PFS("rpc.test")}
+        result = StaffPermissions{
+            UserPositions: []PartialStaffPosition{
+                {
+                    ID:    "test",
+                    Index: 1,
+                    Perms: []Permission{PFS("~rpc.test"), PFS("rpc.test2"), PFS("rpc.test3")},
+                },
+                {
+                    ID:    "test2",
+                    Index: 2,
+                    Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
+                },
+            },
+            PermOverrides: []Permission{PFS("rpc.test")},
+        }.Resolve()
+        if !equal(result, expected) {
+            t.Errorf("Expected %v, got %v", expected, result)
+        }
+
+        // @clear
+        expected = []Permission{PFS("~rpc.test"), PFS("rpc.test2"), PFS("rpc.test3")}
+        result = StaffPermissions{
+            UserPositions: []PartialStaffPosition{
+                {
+                    ID:    "test",
+                    Index: 1,
+                    Perms: []Permission{PFS("~rpc.test"), PFS("rpc.test2")},
+                },
+                {
+                    ID:    "test",
+                    Index: 1,
+                    Perms: []Permission{PFS("global.@clear"), PFS("~rpc.test"), PFS("rpc.test2")},
+                },
+                {
+                    ID:    "test2",
+                    Index: 2,
+                    Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
+                },
+            },
+            PermOverrides: []Permission{PFS("~rpc.test"), PFS("rpc.test2"), PFS("rpc.test3")},
+        }.Resolve()
+        if !equal(result, expected) {
+            t.Errorf("Expected %v, got %v", expected, result)
+        }
+
+        // Special case of * with negators
+        expected = []Permission{PFS("rpc.*")}
+        result = StaffPermissions{
+            UserPositions: []PartialStaffPosition{
+                {
+                    ID:    "test",
+                    Index: 1,
+                    Perms: []Permission{PFS("rpc.*")},
+                },
+                {
+                    ID:    "test2",
+                    Index: 2,
+                    Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
+                },
+            },
+            PermOverrides: []Permission{},
+        }.Resolve()
+        if !equal(result, expected) {
+            t.Errorf("Expected %v, got %v", expected, result)
+        }
+
+        // Ensure special case does not apply when index is higher (2 > 1 in the below)
+        expected = []Permission{PFS("rpc.*"), PFS("~rpc.test3"), PFS("~rpc.test2")}
+        result = StaffPermissions{
+            UserPositions: []PartialStaffPosition{
+                {
+                    ID:    "test2",
+                    Index: 1,
+                    Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
+                },
+                {
+                    ID:    "test",
+                    Index: 2,
+                    Perms: []Permission{PFS("rpc.*")},
+                },
+            },
+            PermOverrides: []Permission{},
+        }.Resolve()
+        if !equal(result, expected) {
+            t.Errorf("Expected %v, got %v", expected, result)
+        }
+
+        // Some common cases
+        // Ensure special case does not apply when index is higher (2 > 1 in the below)
+        expected = []Permission{PFS("~rpc.Claim")}
+        result = StaffPermissions{
+            UserPositions: []PartialStaffPosition{
+                {
+                    ID:    "reviewer",
+                    Index: 1,
+                    Perms: []Permission{PFS("rpc.Claim")},
+                },
+            },
+            PermOverrides: []Permission{PFS("~rpc.Claim")},
+        }.Resolve()
+        if !equal(result, expected) {
+            t.Errorf("Expected %v, got %v", expected, result)
+        }
+    }
+    */
+
+    struct string *rpcTest = string_from_char("rpc.test");
+
+    // Test for basic resolution of overrides
+    struct PermissionList *expected = new_permission_list();
+    permission_list_add(expected, permission_from_str(rpcTest));
+
+    struct StaffPermissions *sp = new_staff_permissions();
+    permission_list_add(sp->perm_overrides, permission_from_str(rpcTest));
+
+    if (!sp_resolve_test_impl(sp, expected))
+    {
+        return 1;
+    }
+
+    // Free memory
+    string_free(rpcTest);
+
+    return 0;
+}
+
+int main()
+{
+    printf("Running tests: %s...\n", ":)");
+
+    char *checks[] = {"bar", "global.bar", "bot.foo", "~bot.foo"};
+
+    for (int i = 0; i < 4; i++)
+    {
+        deconstruct_permission__test(checks[i]);
+    }
+
+    int rc = has_perm__test();
+    if (rc)
+    {
+        return rc;
+    }
+
+    rc = sp_resolve__test();
+    if (rc)
+    {
+        return rc;
     }
 
     printf("All tests passed :)\n");
