@@ -505,7 +505,7 @@ void __ordered_permission_map_clear(struct __OrderedPermissionMap *opm)
 }
 
 // Resolves the permissions of a staff member
-struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
+struct PermissionList *staff_permissions_resolve(const struct StaffPermissions *const sp)
 {
     struct __OrderedPermissionMap *opm = __new_ordered_permission_map();
 
