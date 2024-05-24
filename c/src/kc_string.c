@@ -27,7 +27,29 @@ struct kittycat_string *new_string(char *str, const size_t len)
     return s;
 }
 
-#if !defined(C99) && !defined(KC_STRING_NO_CLONE)
+#ifdef C99
+// Custom strndup implementation for C99, untested(!!)
+char *strndup(const char *s, size_t n)
+{
+    char *result;
+    size_t len = strlen(s);
+
+    if (n < len)
+    {
+        len = n;
+    }
+
+    result = malloc(len + 1);
+    if (!result)
+    {
+        return NULL;
+    }
+
+    result[len] = '\0';
+    return (char *)memcpy(result, s, len);
+}
+#endif
+
 // Create a new string
 //
 // Note: callers must free the string after use using `string_free`
@@ -47,7 +69,6 @@ struct kittycat_string *string_clone(const struct kittycat_string *const s)
 {
     return new_string_cloned(s->str, s->len);
 }
-#endif
 
 struct kittycat_string *string_substr(const struct kittycat_string *const s, const size_t start, const size_t end)
 {

@@ -21,7 +21,6 @@ struct Permission *new_permission(struct kittycat_string *namespace, struct kitt
 }
 
 // strndup is not available in C99
-#if !defined(C99) && !defined(KC_STRING_NO_CLONE)
 struct Permission *new_permission_cloned(struct kittycat_string *namespace, struct kittycat_string *perm, bool negator)
 {
     struct Permission *p = malloc(sizeof(struct Permission));
@@ -31,7 +30,6 @@ struct Permission *new_permission_cloned(struct kittycat_string *namespace, stru
     p->__isCloned = true;
     return p;
 }
-#endif
 
 // Creates a new permission from a string
 //
