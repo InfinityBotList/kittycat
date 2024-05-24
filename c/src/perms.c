@@ -849,12 +849,77 @@ struct KittycatPermissionList *kittycat_staff_permissions_resolve(const struct S
     return appliedPerms;
 }
 
+enum KittycatPermissionCheckPatchChangesResultState
+{
+    KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_OK,
+    KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_NO_PERMISSION,
+    KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_LACKS_NEGATOR_FOR_WILDCARD,
+};
+
 // Returned on calling `kittycat_permission_check_patch_changes`
+//
+// Users should check if state is `KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_OK`
 struct KittycatPermissionCheckPatchChangesResult
 {
-    struct kittycat_string *error;
-    bool success;
+    enum KittycatPermissionCheckPatchChangesResultState state;
+    struct KittycatPermissionList *failing_perms;
 };
+
+// Frees the KittycatPermissionCheckPatchChangesResult
+void kittycat_permission_check_patch_changes_result_free(struct KittycatPermissionCheckPatchChangesResult *result)
+{
+    if (result->failing_perms != NULL)
+    {
+        kittycat_permission_list_free(result->failing_perms);
+    }
+    free(result);
+}
+
+// Converts a KittycatPermissionCheckPatchChangesResult to a string
+// KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_NO_PERMISSION => You do not have permission to add this permission: {perm[0]}
+// KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_LACKS_NEGATOR_FOR_WILDCARD => You do not have permission to add wildcard permission {perm[0]} with negators due to lack of negator {perm[1]}"
+char *kittycat_permission_check_patch_changes_result_to_str(struct KittycatPermissionCheckPatchChangesResult *result)
+{
+    if (result->state == KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_NO_PERMISSION)
+    {
+        char *perm_str = kittycat_permission_to_str(result->failing_perms->perms[0]);
+
+        size_t error_msg_len = strlen("You do not have permission to add this permission: ") + strlen(perm_str) + 1;
+        char *error_msg = malloc(error_msg_len);
+        snprintf(
+            error_msg,
+            error_msg_len,
+            "You do not have permission to add this permission: %s",
+            perm_str);
+
+        free(perm_str);
+
+        return error_msg;
+    }
+    else if (result->state == KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_LACKS_NEGATOR_FOR_WILDCARD)
+    {
+        char *perm_str = kittycat_permission_to_str(result->failing_perms->perms[0]);
+        char *negator_str = kittycat_permission_to_str(result->failing_perms->perms[1]);
+
+        size_t error_msg_len = strlen("You do not have permission to add wildcard permission ") + strlen(perm_str) + strlen(" with negators due to lack of negator ") + strlen(negator_str) + 1;
+        char *error_msg = malloc(error_msg_len);
+        snprintf(
+            error_msg,
+            error_msg_len,
+            "You do not have permission to add wildcard permission %s with negators due to lack of negator %s",
+            perm_str,
+            negator_str);
+
+        free(perm_str);
+        free(negator_str);
+
+        return error_msg;
+    }
+    else
+    {
+        return "";
+    }
+}
 
 // Checks whether or not a resolved set of KittycatPermissions allows the addition or removal of a KittycatPermission to a position
 struct KittycatPermissionCheckPatchChangesResult kittycat_check_patch_changes(
@@ -935,24 +1000,13 @@ struct KittycatPermissionCheckPatchChangesResult kittycat_check_patch_changes(
             kittycat_permission_free(resolved_perm);
             kittycat_permission_list_free(changed);
 
-            // You do not have KittycatPermission to add this permission: {perm}
-            char *perm_str = kittycat_permission_to_str(perm);
-
-            size_t error_msg_len = strlen("You do not have permission to add this permission: ") + strlen(perm_str) + 1;
-            char *error_msg = malloc(error_msg_len);
-            snprintf(
-                error_msg,
-                error_msg_len,
-                "You do not have permission to add this permission: %s",
-                perm_str);
-
-            free(perm_str); // error_msg must be freed by caller with `kittycat_permission_check_patch_changes_result_free`
-
-            struct kittycat_string *error = new_string(error_msg, strlen(error_msg));
-            error->__isCloned = true; // Mark as cloned as error is a new string
             return (struct KittycatPermissionCheckPatchChangesResult){
-                .error = error,
-                .success = false};
+                .state = KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_NO_PERMISSION,
+                .failing_perms = kittycat_permission_list_new_with_perms(
+                    (struct KittycatPermission *[]){
+                        perm},
+                    1),
+            };
         }
 
         if (string_is_equal_char(perm->perm, "*"))
@@ -973,7 +1027,7 @@ struct KittycatPermissionCheckPatchChangesResult kittycat_check_patch_changes(
                     for (size_t k = 0; k < new_perms->len; k++)
                     {
                         struct KittycatPermission *new_perm = new_perms->perms[k];
-                        if (string_is_equal(perms->namespace, perm->namespace) && string_is_equal(perms->perm, perm->perm) && perms->negator == new_perm->negator)
+                        if (string_is_equal(new_perm->namespace, perm->namespace) && string_is_equal(new_perm->perm, perm->perm) && new_perm->negator == perm->negator)
                         {
                             in_new_perms = true;
                             break;
@@ -985,28 +1039,14 @@ struct KittycatPermissionCheckPatchChangesResult kittycat_check_patch_changes(
                         kittycat_permission_free(resolved_perm);
                         kittycat_permission_list_free(changed);
 
-                        // You do not have permission to add wildcard permission {} with negators due to lack of negator {}", perm, perms
-                        char *perm_str = kittycat_permission_to_str(perm);
-                        char *perms_str = kittycat_permission_to_str(perms);
-
-                        size_t error_msg_len = strlen("You do not have permission to add wildcard permission ") + strlen(perm_str) + strlen(" with negators due to lack of negator ") + strlen(perms_str) + 1;
-                        char *error_msg = malloc(error_msg_len);
-
-                        snprintf(
-                            error_msg,
-                            error_msg_len,
-                            "You do not have permission to add wildcard permission %s with negators due to lack of negator %s",
-                            perm_str,
-                            perms_str);
-
-                        free(perm_str);  // error_msg must be freed by caller with `kittycat_permission_check_patch_changes_result_free`
-                        free(perms_str); // error_msg must be freed by caller with `kittycat_permission_check_patch_changes_result_free`
-
-                        struct kittycat_string *error = new_string(error_msg, strlen(error_msg));
-                        error->__isCloned = true; // Mark as cloned as error is a new string
                         return (struct KittycatPermissionCheckPatchChangesResult){
-                            .error = error,
-                            .success = false};
+                            .state = KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_LACKS_NEGATOR_FOR_WILDCARD,
+                            .failing_perms = kittycat_permission_list_new_with_perms(
+                                (struct KittycatPermission *[]){
+                                    perm,
+                                    perms},
+                                2),
+                        };
                     }
                 }
             }
@@ -1018,6 +1058,5 @@ struct KittycatPermissionCheckPatchChangesResult kittycat_check_patch_changes(
     kittycat_permission_list_free(changed); // Free the changed KittycatPermissions
 
     return (struct KittycatPermissionCheckPatchChangesResult){
-        .error = NULL,
-        .success = true};
+        .state = KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_OK};
 }
