@@ -436,6 +436,7 @@ struct __OrderedPermissionMap *__new_ordered_permission_map()
     struct __OrderedPermissionMap *opm = malloc(sizeof(struct __OrderedPermissionMap));
     opm->map = hashmap_new(sizeof(struct Permission), 0, 0, 0, __permissionwc_hash, __permissionwc_compare, NULL, NULL);
     opm->order = malloc(sizeof(struct Permission *));
+    opm->len = 0;
     return opm;
 }
 
