@@ -1,5 +1,5 @@
-CFLAGS = -DDEBUG -g -Wall -Wextra -Werror -Wno-unused-parameter -O3 -fsanitize=address -fsanitize=undefined
-CFLAGS_NO_ASAN = -DDEBUG -g -Wall -Wextra -Werror -Wno-unused-parameter -O3
+CFLAGS = -g -Wall -Wextra -Werror -Wno-unused-parameter -O3 -fsanitize=address -fsanitize=undefined
+CFLAGS_NO_ASAN = -g -Wall -Wextra -Werror -Wno-unused-parameter -O3
 CC = gcc
 
 tests:
@@ -9,10 +9,8 @@ tests:
 	${CC} ${CFLAGS} src/hashmap/hashmap.c src/perms_test.c -o out/perms_test
 	${CC} ${CFLAGS_NO_ASAN} src/hashmap/hashmap.c src/perms_test.c -o out/perms_test_no_asan
 
-	# For every file in out, run it
-	for file in out/*; do \
-		$$file; \
-	done
+	./out/kc_string_test
+	./out/perms_test
 
 clean:
 	rm -rf out

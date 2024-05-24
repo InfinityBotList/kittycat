@@ -661,7 +661,7 @@ struct PermissionList *__staff_permissions_resolve(const struct StaffPermissions
         }
     }
 
-#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_POSITION_LIST)
     // Send list of positions
     for (size_t i = 0; i < userPositions->len; i++)
     {

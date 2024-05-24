@@ -389,9 +389,14 @@ int sp_resolve__test()
     struct kittycat_string *rpcTest = new_string("rpc.test", 8);
     struct kittycat_string *rpcTest2 = new_string("rpc.test2", 9);
     struct kittycat_string *rpcTest3 = new_string("rpc.test3", 9);
+    struct kittycat_string *rpcClaim = new_string("rpc.Claim", 9);
+    struct kittycat_string *rpcStar = new_string("rpc.*", 5);
     struct kittycat_string *NrpcTest = new_string("~rpc.test", 9);
     struct kittycat_string *NrpcTest2 = new_string("~rpc.test2", 10);
     struct kittycat_string *NrpcTest3 = new_string("~rpc.test3", 10);
+    struct kittycat_string *NrpcClaim = new_string("~rpc.Claim", 10);
+    struct kittycat_string *NrpcStar = new_string("~rpc.*", 6);
+    struct kittycat_string *global_clear = new_string("global.@clear", 13);
 
     // Test for basic resolution of overrides
     struct PermissionList *expected = new_permission_list_with_perms(
@@ -494,13 +499,91 @@ int sp_resolve__test()
         return 1;
     }
 
+    // @clear
+    expected = new_permission_list_with_perms(
+        (struct Permission *[]){
+            permission_from_str(NrpcTest),
+            permission_from_str(rpcTest2),
+            permission_from_str(rpcTest3),
+        },
+        3);
+
+    sp = new_staff_permissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest), permission_from_str(rpcTest2)}, 2)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(global_clear), permission_from_str(NrpcTest), permission_from_str(rpcTest2)}, 3)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest3), permission_from_str(NrpcTest2)}, 2)));
+    permission_list_add(sp->perm_overrides, permission_from_str(NrpcTest));
+    permission_list_add(sp->perm_overrides, permission_from_str(rpcTest2));
+    permission_list_add(sp->perm_overrides, permission_from_str(rpcTest3));
+
+    if (!sp_resolve_test_impl(sp, expected, opm))
+    {
+        return 1;
+    }
+
+    // Special case of * with negators
+    expected = new_permission_list_with_perms(
+        (struct Permission *[]){
+            permission_from_str(rpcStar),
+        },
+        1);
+
+    sp = new_staff_permissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcStar)}, 1)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest3), permission_from_str(NrpcTest2)}, 2)));
+
+    if (!sp_resolve_test_impl(sp, expected, opm))
+    {
+        return 1;
+    }
+
+    // Ensure special case does not apply when index is higher (2 > 1 in the below)
+    expected = new_permission_list_with_perms(
+        (struct Permission *[]){
+            permission_from_str(rpcStar),
+            permission_from_str(NrpcTest3),
+            permission_from_str(NrpcTest2),
+        },
+        3);
+
+    sp = new_staff_permissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest3), permission_from_str(NrpcTest2)}, 2)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcStar)}, 1)));
+
+    if (!sp_resolve_test_impl(sp, expected, opm))
+    {
+        return 1;
+    }
+
+    // Some common cases
+    // Ensure special case does not apply when index is higher (2 > 1 in the below)
+    expected = new_permission_list_with_perms(
+        (struct Permission *[]){
+            permission_from_str(NrpcClaim),
+        },
+        1);
+
+    sp = new_staff_permissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("reviewer", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcClaim)}, 1)));
+    permission_list_add(sp->perm_overrides, permission_from_str(NrpcClaim));
+
+    if (!sp_resolve_test_impl(sp, expected, opm))
+    {
+        return 1;
+    }
+
     // Free memory
     string_free(rpcTest);
     string_free(rpcTest2);
     string_free(rpcTest3);
+    string_free(rpcClaim);
+    string_free(rpcStar);
     string_free(NrpcTest);
     string_free(NrpcTest2);
     string_free(NrpcTest3);
+    string_free(NrpcClaim);
+    string_free(NrpcStar);
+    string_free(global_clear);
     __ordered_permission_map_free(opm);
 
     return 0;
