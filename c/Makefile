@@ -1,4 +1,4 @@
-CFLAGS = -g -Wall -Wextra -Werror -Wno-unused-parameter -O3 -fsanitize=address -fsanitize=undefined
+CFLAGS = -DDEBUG_PRINTF=1 -g -Wall -Wextra -Werror -Wno-unused-parameter -O3 -fsanitize=address -fsanitize=undefined
 CFLAGS_NO_ASAN = -g -Wall -Wextra -Werror -Wno-unused-parameter -O3
 CC = gcc
 

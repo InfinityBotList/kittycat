@@ -1,9 +1,9 @@
 #include "perms.c"
 
 #ifdef DEBUG_PRINTF
-#define printf_(fmt, ...) printf(fmt, __VA_ARGS__)
+#define printff(fmt, ...) printf(fmt, __VA_ARGS__)
 #else
-#define printf_(fmt, ...)
+#define printf(fmt, ...)
 #endif
 
 #if defined(DECONSTRUCT_PERMISSION_CHECKS)
@@ -15,16 +15,16 @@ int deconstruct_permission__test(char *perm)
     if (p == NULL)
     {
         string_free(perm_str);
-        printf_("ERROR: Permission is NULL\n");
+        printf("ERROR: Permission is NULL\n");
         return 1;
     }
     else
     {
         char *fp = permission_to_str(p);
-        printf_("Namespace: %s\n", p->namespace->str);
-        printf_("Perm: %s\n", p->perm->str);
-        printf_("Negator: %s\n", p->negator ? "true" : "false");
-        printf_("Final permission: %s\n", fp);
+        printf("Namespace: %s\n", p->namespace->str);
+        printf("Perm: %s\n", p->perm->str);
+        printf("Negator: %s\n", p->negator ? "true" : "false");
+        printf("Final permission: %s\n", fp);
         free(fp);
     }
 
@@ -52,7 +52,7 @@ bool has_perm_test_impl(char **str, char *perm, size_t len)
     struct Permission *p = permission_from_str(perm_str);
     struct kittycat_string *permlist_joined = permission_list_join(perms, ", ");
 
-    printf_("Checking permission: %s against [%s] (len=%zu)\n", perm_str->str, permlist_joined->str, perms->len);
+    printf("Checking permission: %s against [%s] (len=%zu)\n", perm_str->str, permlist_joined->str, perms->len);
 
     bool res = has_perm(perms, p);
 
@@ -68,103 +68,103 @@ int has_perm__test()
 {
     if (!has_perm_test_impl((char *[]){"global.*"}, "test", 1))
     {
-        printf_("Expected true, got false\n");
+        printf("Expected true, got false\n");
         return 1;
     }
 
     if (has_perm_test_impl((char *[]){"rpc.*"}, "global.*", 1))
     {
-        printf_("Expected false, got true\n");
+        printf("Expected false, got true\n");
         return 1;
     }
 
     if (!has_perm_test_impl((char *[]){"global.test"}, "rpc.test", 1))
     {
-        printf_("Expected true, got false\n");
+        printf("Expected true, got false\n");
         return 1;
     }
 
     if (has_perm_test_impl((char *[]){"global.test"}, "rpc.view_bot_queue", 1))
     {
-        printf_("Expected false, got true\n");
+        printf("Expected false, got true\n");
         return 1;
     }
 
     if (!has_perm_test_impl((char *[]){"global.*"}, "rpc.view_bot_queue", 1))
     {
-        printf_("Expected true, got false\n");
+        printf("Expected true, got false\n");
         return 1;
     }
 
     if (!has_perm_test_impl((char *[]){"rpc.*"}, "rpc.ViewBotQueue", 1))
     {
-        printf_("Expected true, got false\n");
+        printf("Expected true, got false\n");
         return 1;
     }
 
     if (has_perm_test_impl((char *[]){"rpc.BotClaim"}, "rpc.ViewBotQueue", 1))
     {
-        printf_("Expected false, got true\n");
+        printf("Expected false, got true\n");
         return 1;
     }
 
     if (has_perm_test_impl((char *[]){"apps.*"}, "rpc.ViewBotQueue", 1))
     {
-        printf_("Expected false, got true\n");
+        printf("Expected false, got true\n");
         return 1;
     }
 
     if (has_perm_test_impl((char *[]){"apps.*"}, "rpc.*", 1))
     {
-        printf_("Expected false, got true\n");
+        printf("Expected false, got true\n");
         return 1;
     }
 
     if (has_perm_test_impl((char *[]){"apps.test"}, "rpc.test", 1))
     {
-        printf_("Expected false, got true\n");
+        printf("Expected false, got true\n");
         return 1;
     }
 
     if (!has_perm_test_impl((char *[]){"apps.*"}, "apps.test", 1))
     {
-        printf_("Expected true, got false\n");
+        printf("Expected true, got false\n");
         return 1;
     }
 
     if (has_perm_test_impl((char *[]){"~apps.*"}, "apps.test", 1))
     {
-        printf_("Expected false, got true\n");
+        printf("Expected false, got true\n");
         return 1;
     }
 
     if (has_perm_test_impl((char *[]){"apps.*", "~apps.test"}, "apps.test", 2))
     {
-        printf_("Expected false, got true\n");
+        printf("Expected false, got true\n");
         return 1;
     }
 
     if (has_perm_test_impl((char *[]){"~apps.test", "apps.*"}, "apps.test", 2))
     {
-        printf_("Expected false, got true\n");
+        printf("Expected false, got true\n");
         return 1;
     }
 
     if (!has_perm_test_impl((char *[]){"apps.test"}, "apps.test", 1))
     {
-        printf_("Expected true, got false\n");
+        printf("Expected true, got false\n");
         return 1;
     }
 
     if (!has_perm_test_impl((char *[]){"apps.test", "apps.*"}, "apps.test", 2))
     {
-        printf_("Expected true, got false\n");
+        printf("Expected true, got false\n");
         return 1;
     }
 
     if (!has_perm_test_impl((char *[]){"~apps.test", "global.*"}, "apps.test", 2))
     {
-        printf_("Expected true, got false\n");
+        printf("Expected true, got false\n");
         return 1;
     }
 
@@ -179,7 +179,7 @@ bool sp_resolve_test_impl(struct StaffPermissions *sp, struct PermissionList *ex
     struct kittycat_string *perms_str = permission_list_join(perms, ", ");
     bool res = permission_lists_equal(perms, expected_perms);
 
-    printf_("Expected: [%s], got [%s], isEqual=%s\n", expected_perms_str->str, perms_str->str, res ? "true" : "false");
+    printf("Expected: [%s], got [%s], isEqual=%s\n", expected_perms_str->str, perms_str->str, res ? "true" : "false");
 
     permission_list_free(perms);
     permission_list_free(expected_perms);
@@ -599,7 +599,7 @@ int sp_resolve__test()
 
 int main()
 {
-    printf_("Running tests: %s...\n", ":)");
+    printf("Running tests: %s...\n", ":)");
 
 #if defined(DECONSTRUCT_PERMISSION_CHECKS)
     char *checks[] = {"bar", "global.bar", "bot.foo", "~bot.foo"};
@@ -625,7 +625,8 @@ int main()
         return rc;
     }
 
-    printf("All tests passed :)\n");
+    // Print "All tests passed" to stdout
+    fprintf(stdout, "All tests passed\n");
 
     return 0;
 }
