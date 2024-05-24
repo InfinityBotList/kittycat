@@ -9,19 +9,21 @@ struct kittycat_string
 {
     char *str;
     size_t len;
-    bool isCloned;
+
+    // Internal
+    bool __isCloned;
 };
 
 // Create a new string
 //
 // Note: callers must free the string after use using `string_free`
 // Note 2: Callers must manually call strndup if the string should be copied (or use new_string_cloned)
-struct kittycat_string *new_string(const char *str, const size_t len)
+struct kittycat_string *new_string(char *str, const size_t len)
 {
     struct kittycat_string *s = malloc(sizeof(struct kittycat_string));
     s->str = str;
     s->len = len;
-    s->isCloned = false;
+    s->__isCloned = false;
     return s;
 }
 
@@ -35,7 +37,7 @@ struct kittycat_string *new_string_cloned(char *str, const size_t len)
     struct kittycat_string *s = malloc(sizeof(struct kittycat_string));
     s->str = cp_str;
     s->len = len;
-    s->isCloned = true;
+    s->__isCloned = true;
     return s;
 }
 
@@ -58,7 +60,7 @@ struct kittycat_string *string_substr(struct kittycat_string *s, const size_t st
     memcpy(str, s->str + start, len);
     str[len] = '\0'; // Null terminate the string
     struct kittycat_string *ns = new_string(str, len);
-    ns->isCloned = true; // Mark as cloned as string_substr copies to another string
+    ns->__isCloned = true; // Mark as cloned as string_substr copies to another string
     return ns;
 }
 
@@ -103,7 +105,7 @@ struct kittycat_string *string_concat(struct kittycat_string *s1, struct kittyca
     memcpy(str + s1->len, s2->str, s2->len);           // Copy the second string
     str[len] = '\0';                                   // Null terminate the string
     struct kittycat_string *ns = new_string(str, len); // Return the concatenated string
-    ns->isCloned = true;                               // Mark as cloned as string_concat copies to another string
+    ns->__isCloned = true;                             // Mark as cloned as string_concat copies to another string
     return ns;
 }
 
@@ -117,7 +119,7 @@ void string_free(struct kittycat_string *s)
     // Already freed if NULL
     if (s == NULL)
         return;
-    if (s->isCloned)
+    if (s->__isCloned)
     {
         free(s->str); // Free the string
         s->str = NULL;

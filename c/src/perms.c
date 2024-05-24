@@ -5,7 +5,9 @@ struct Permission
     struct kittycat_string *namespace;
     struct kittycat_string *perm;
     bool negator;
-    bool isCloned;
+
+    // Internal
+    bool __isCloned;
 };
 
 struct Permission *new_permission(struct kittycat_string *namespace, struct kittycat_string *perm, bool negator)
@@ -14,7 +16,7 @@ struct Permission *new_permission(struct kittycat_string *namespace, struct kitt
     p->namespace = namespace;
     p->perm = perm;
     p->negator = negator;
-    p->isCloned = false;
+    p->__isCloned = false;
     return p;
 }
 
@@ -24,7 +26,7 @@ struct Permission *new_permission_cloned(struct kittycat_string *namespace, stru
     p->namespace = string_clone(namespace);
     p->perm = string_clone(perm);
     p->negator = negator;
-    p->isCloned = true;
+    p->__isCloned = true;
     return p;
 }
 
@@ -59,12 +61,12 @@ struct Permission *permission_from_str(struct kittycat_string *str)
     {
         string_free(str_split[1]);
         p = new_permission(new_string("global", strlen("global")), str_split[0], negator);
-        p->isCloned = true; // substr clones the string, so flag it as cloned
+        p->__isCloned = true; // substr clones the string, so flag it as cloned
     }
     else
     {
         p = new_permission(str_split[0], str_split[1], negator);
-        p->isCloned = true; // substr clones the string, so flag it as cloned
+        p->__isCloned = true; // substr clones the string, so flag it as cloned
     }
 
     return p;
@@ -102,7 +104,7 @@ void permission_free(struct Permission *p)
 #endif
 
     // Only call string_free if new_permission_cloned was used
-    if (p->isCloned)
+    if (p->__isCloned)
     {
         string_free(p->namespace);
         string_free(p->perm);
