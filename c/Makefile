@@ -1,5 +1,5 @@
-CFLAGS = -Wall -Wextra -Werror -Wno-unused-parameter -O3 -fsanitize=address -fsanitize=undefined
-CFLAGS_NO_ASAN = -Wall -Wextra -Werror -Wno-unused-parameter -O3
+CFLAGS = -DDEBUG -Wall -Wextra -Werror -Wno-unused-parameter -O3 -fsanitize=address -fsanitize=undefined
+CFLAGS_NO_ASAN = -DDEBUG -Wall -Wextra -Werror -Wno-unused-parameter -O3
 CC = gcc
 
 tests:
