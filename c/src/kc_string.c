@@ -29,7 +29,7 @@ struct kittycat_string *new_string(char *str, const size_t len)
 
 #ifdef C99
 // Custom strndup implementation for C99, untested(!!)
-char *strndup(const char *s, size_t n)
+char *kittycat_strndup(const char *s, size_t n)
 {
     char *result;
     size_t len = strlen(s);
@@ -48,6 +48,8 @@ char *strndup(const char *s, size_t n)
     result[len] = '\0';
     return (char *)memcpy(result, s, len);
 }
+#else
+#define kittycat_strndup strndup
 #endif
 
 // Create a new string
@@ -56,7 +58,7 @@ char *strndup(const char *s, size_t n)
 // Note 2: Callers must manually call strndup if the string should be copied (or use new_string_cloned)
 struct kittycat_string *new_string_cloned(const char *const str, const size_t len)
 {
-    char *cp_str = strndup(str, len); // Copy the string to prevent memory leaks
+    char *cp_str = kittycat_strndup(str, len); // Copy the string to prevent memory leaks
     struct kittycat_string *s = malloc(sizeof(struct kittycat_string));
     s->str = cp_str;
     s->len = len;
