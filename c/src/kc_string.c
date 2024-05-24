@@ -16,7 +16,7 @@ struct kittycat_string
 //
 // Note: callers must free the string after use using `string_free`
 // Note 2: Callers must manually call strndup if the string should be copied (or use new_string_cloned)
-struct kittycat_string *new_string(char *str, const size_t len)
+struct kittycat_string *new_string(const char *str, const size_t len)
 {
     struct kittycat_string *s = malloc(sizeof(struct kittycat_string));
     s->str = str;
