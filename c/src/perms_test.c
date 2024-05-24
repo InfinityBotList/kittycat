@@ -387,11 +387,25 @@ int sp_resolve__test()
     struct kittycat_string *rpcTest = new_string("rpc.test", 8);
 
     // Test for basic resolution of overrides
-    struct PermissionList *expected = new_permission_list();
-    permission_list_add(expected, permission_from_str(rpcTest));
-
+    struct PermissionList *expected = new_permission_list_with_perms(
+        (struct Permission *[]){
+            permission_from_str(rpcTest),
+        },
+        1);
     struct StaffPermissions *sp = new_staff_permissions();
     permission_list_add(sp->perm_overrides, permission_from_str(rpcTest));
+
+    if (!sp_resolve_test_impl(sp, expected))
+    {
+        return 1;
+    }
+
+    // Test for basic resolution of single position
+    expected = new_permission_list();
+    permission_list_add(expected, permission_from_str(rpcTest));
+
+    sp = new_staff_permissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcTest)}, 1)));
 
     if (!sp_resolve_test_impl(sp, expected))
     {

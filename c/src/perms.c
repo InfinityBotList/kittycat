@@ -151,6 +151,19 @@ void permission_list_rm(struct PermissionList *pl, size_t i)
     pl->perms = realloc(pl->perms, pl->len * sizeof(struct Permission *));
 }
 
+struct PermissionList *new_permission_list_with_perms(
+    struct Permission **perms, size_t len)
+{
+    struct PermissionList *pl = malloc(sizeof(struct PermissionList));
+    pl->perms = malloc(len * sizeof(struct Permission *));
+    pl->len = len;
+    for (size_t i = 0; i < len; i++)
+    {
+        pl->perms[i] = perms[i];
+    }
+    return pl;
+}
+
 // Joins a permission list to produce a string
 //
 // The canonical string representation is used for each individual input permission
