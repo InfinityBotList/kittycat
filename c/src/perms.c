@@ -20,7 +20,10 @@ struct Permission *new_permission(struct kittycat_string *namespace, struct kitt
     return p;
 }
 
-// strndup is not available in C99
+// Creates a new permission from a string.
+// The string must be in the format `namespace.perm`
+// Caller must free the permission after use using `permission_free`
+// Note that the original namespace+perm will be cloned and automatically freed when the permission is freed using `permission_free`
 struct Permission *new_permission_cloned(struct kittycat_string *namespace, struct kittycat_string *perm, bool negator)
 {
     struct Permission *p = malloc(sizeof(struct Permission));
