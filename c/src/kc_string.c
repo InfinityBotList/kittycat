@@ -47,12 +47,6 @@ struct kittycat_string *string_clone(const struct kittycat_string *const s)
     return new_string_cloned(s->str, s->len);
 }
 
-// Clone the chars of a string
-char *string_clone_chars(const struct kittycat_string *const s)
-{
-    return strndup(s->str, s->len);
-}
-
 struct kittycat_string *string_substr(const struct kittycat_string *const s, const size_t start, const size_t end)
 {
     size_t len = end - start;

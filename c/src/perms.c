@@ -75,24 +75,18 @@ struct Permission *permission_from_str(struct kittycat_string *str)
 char *permission_to_str(struct Permission *p)
 {
     // Permissions are of the form `namespace.perm`
-    char *namespace = string_clone_chars(p->namespace);
-    char *perm = string_clone_chars(p->perm);
-
     char *finalPerm;
 
     if (p->negator)
     {
         finalPerm = malloc(p->namespace->len + p->perm->len + 3);
-        snprintf(finalPerm, p->namespace->len + p->perm->len + 3, "~%s.%s", namespace, perm);
+        snprintf(finalPerm, p->namespace->len + p->perm->len + 3, "~%s.%s", p->namespace->str, p->perm->str);
     }
     else
     {
         finalPerm = malloc(p->namespace->len + p->perm->len + 2);
-        snprintf(finalPerm, p->namespace->len + p->perm->len + 2, "%s.%s", namespace, perm);
+        snprintf(finalPerm, p->namespace->len + p->perm->len + 2, "%s.%s", p->namespace->str, p->perm->str);
     }
-
-    free(namespace);
-    free(perm);
 
     return finalPerm;
 }
