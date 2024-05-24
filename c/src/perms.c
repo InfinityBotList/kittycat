@@ -702,7 +702,9 @@ struct PermissionList *__staff_permissions_resolve(const struct StaffPermissions
     string_free(appliedPermsStr);
 #endif
 
+    string_free(permOverrides->id);
     free(permOverrides);
+    free(userPositions->positions);
     free(userPositions);
 
     return appliedPerms;
