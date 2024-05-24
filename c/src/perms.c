@@ -670,11 +670,6 @@ struct PermissionList *staff_permissions_resolve(const struct StaffPermissions *
     for (size_t i = 0; i < opm->len; i++)
     {
         struct Permission *perm = opm->order[i];
-        if (perm->__isCloned)
-        {
-            permission_list_add(appliedPerms, perm);
-            continue;
-        }
         // Copy the permission
         struct Permission *new_perm = new_permission(perm->namespace, perm->perm, perm->negator);
         permission_list_add(appliedPerms, new_perm);
