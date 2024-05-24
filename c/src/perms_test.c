@@ -6,29 +6,29 @@
 #define printf(fmt, ...)
 #endif
 
-#if defined(DECONSTRUCT_PERMISSION_CHECKS)
-int deconstruct_permission__test(char *perm)
+#if defined(DECONSTRUCT_kittycat_permission_CHECKS)
+int deconstruct_kittycat_permission__test(char *perm)
 {
     struct kittycat_string *perm_str = new_string(perm, strlen(perm));
-    struct Permission *p = permission_from_str(perm_str);
+    struct KittycatPermission *p = kittycat_permission_from_str(perm_str);
 
     if (p == NULL)
     {
         string_free(perm_str);
-        printf("ERROR: Permission is NULL\n");
+        printf("ERROR: KittycatPermission is NULL\n");
         return 1;
     }
     else
     {
-        char *fp = permission_to_str(p);
+        char *fp = kittycat_permission_to_str(p);
         printf("Namespace: %s\n", p->namespace->str);
         printf("Perm: %s\n", p->perm->str);
         printf("Negator: %s\n", p->negator ? "true" : "false");
-        printf("Final permission: %s\n", fp);
+        printf("Final KittycatPermission: %s\n", fp);
         free(fp);
     }
 
-    permission_free(p);
+    kittycat_permission_free(p);
     string_free(perm_str);
 
     return 0;
@@ -37,29 +37,29 @@ int deconstruct_permission__test(char *perm)
 
 bool has_perm_test_impl(char **str, char *perm, size_t len)
 {
-    struct PermissionList *perms = new_permission_list();
+    struct KittycatPermissionList *perms = new_kittycat_permission_list();
 
     for (size_t i = 0; i < len; i++)
     {
         struct kittycat_string *perm_str = new_string(str[i], strlen(str[i]));
-        struct Permission *p = permission_from_str(perm_str);
+        struct KittycatPermission *p = kittycat_permission_from_str(perm_str);
         string_free(perm_str);
 
-        permission_list_add(perms, p);
+        kittycat_permission_list_add(perms, p);
     }
 
     struct kittycat_string *perm_str = new_string(perm, strlen(perm));
-    struct Permission *p = permission_from_str(perm_str);
-    struct kittycat_string *permlist_joined = permission_list_join(perms, ", ");
+    struct KittycatPermission *p = kittycat_permission_from_str(perm_str);
+    struct kittycat_string *permlist_joined = kittycat_permission_list_join(perms, ", ");
 
-    printf("Checking permission: %s against [%s] (len=%zu)\n", perm_str->str, permlist_joined->str, perms->len);
+    printf("Checking KittycatPermission: %s against [%s] (len=%zu)\n", perm_str->str, permlist_joined->str, perms->len);
 
     bool res = has_perm(perms, p);
 
     string_free(permlist_joined);
     string_free(perm_str);
-    permission_free(p);
-    permission_list_free(perms);
+    kittycat_permission_free(p);
+    kittycat_permission_list_free(perms);
 
     return res;
 }
@@ -171,229 +171,29 @@ int has_perm__test()
     return 0;
 }
 
-bool sp_resolve_test_impl(struct StaffPermissions *sp, struct PermissionList *expected_perms, struct __OrderedPermissionMap *opm)
+bool sp_resolve_test_impl(struct StaffKittycatPermissions *sp, struct KittycatPermissionList *expected_perms, struct __KittycatOrderedPermissionMap *opm)
 {
-    struct PermissionList *perms = __staff_permissions_resolve(sp, opm);
+    struct KittycatPermissionList *perms = __staff_KittycatPermissions_resolve(sp, opm);
 
-    struct kittycat_string *expected_perms_str = permission_list_join(expected_perms, ", ");
-    struct kittycat_string *perms_str = permission_list_join(perms, ", ");
-    bool res = permission_lists_equal(perms, expected_perms);
+    struct kittycat_string *expected_perms_str = kittycat_permission_list_join(expected_perms, ", ");
+    struct kittycat_string *perms_str = kittycat_permission_list_join(perms, ", ");
+    bool res = kittycat_permission_lists_equal(perms, expected_perms);
 
     printf("Expected: [%s], got [%s], isEqual=%s\n", expected_perms_str->str, perms_str->str, res ? "true" : "false");
 
-    permission_list_free(perms);
-    permission_list_free(expected_perms);
+    kittycat_permission_list_free(perms);
+    kittycat_permission_list_free(expected_perms);
     string_free(expected_perms_str);
     string_free(perms_str);
-    staff_permissions_free(sp);
-    __ordered_permission_map_clear(opm); // Clear the OPM for reuse
+    staff_KittycatPermissions_free(sp);
+    __kittycat_ordered_permission_map_clear(opm); // Clear the OPM for reuse
 
     return res;
 }
 
-// TODO: Finish porting all tests
 int sp_resolve__test()
 {
-    /*
-    func TestResolvePerms(t *testing.T) {
-        // Test for basic resolution of overrides
-        expected := []Permission{PFS("rpc.test")}
-        result := StaffPermissions{
-            UserPositions: []PartialStaffPosition{},
-            PermOverrides: []Permission{PFS("rpc.test")},
-        }.Resolve()
-        if !equal(result, expected) {
-            t.Errorf("Expected %v, got %v", expected, result)
-        }
-
-        // Test for basic resolution of single position
-        expected = []Permission{PFS("rpc.test")}
-        result = StaffPermissions{
-            UserPositions: []PartialStaffPosition{
-                {
-                    ID:    "test",
-                    Index: 1,
-                    Perms: []Permission{PFS("rpc.test")},
-                },
-            },
-            PermOverrides: []Permission{},
-        }.Resolve()
-        if !equal(result, expected) {
-            t.Errorf("Expected %v, got %v", expected, result)
-        }
-
-        // Test for basic resolution of multiple positions
-        expected = []Permission{PFS("rpc.test2"), PFS("rpc.test")}
-        result = StaffPermissions{
-            UserPositions: []PartialStaffPosition{
-                {
-                    ID:    "test",
-                    Index: 1,
-                    Perms: []Permission{PFS("rpc.test")},
-                },
-                {
-                    ID:    "test2",
-                    Index: 2,
-                    Perms: []Permission{PFS("rpc.test2")},
-                },
-            },
-            PermOverrides: []Permission{},
-        }.Resolve()
-        if !equal(result, expected) {
-            t.Errorf("Expected %v, got %v", expected, result)
-        }
-
-        // Test for basic resolution of multiple positions with negators
-        expected = []Permission{PFS("~rpc.test3"), PFS("rpc.test"), PFS("rpc.test2")}
-        result = StaffPermissions{
-            UserPositions: []PartialStaffPosition{
-                {
-                    ID:    "test",
-                    Index: 1,
-                    Perms: []Permission{PFS("rpc.test"), PFS("rpc.test2")},
-                },
-                {
-                    ID:    "test2",
-                    Index: 2,
-                    Perms: []Permission{PFS("~rpc.test"), PFS("~rpc.test3")},
-                },
-            },
-            PermOverrides: []Permission{},
-        }.Resolve()
-        if !equal(result, expected) {
-            t.Errorf("Expected %v, got %v", expected, result)
-        }
-
-        // Same as above but testing negator ordering
-        expected = []Permission{PFS("~rpc.test3"), PFS("~rpc.test"), PFS("rpc.test2")}
-        result = StaffPermissions{
-            UserPositions: []PartialStaffPosition{
-                {
-                    ID:    "test",
-                    Index: 1,
-                    Perms: []Permission{PFS("~rpc.test"), PFS("rpc.test2")},
-                },
-                {
-                    ID:    "test2",
-                    Index: 2,
-                    Perms: []Permission{PFS("~rpc.test3"), PFS("rpc.test")},
-                },
-            },
-            PermOverrides: []Permission{},
-        }.Resolve()
-        if !equal(result, expected) {
-            t.Errorf("Expected %v, got %v", expected, result)
-        }
-
-        // Now mix everything together
-        expected = []Permission{PFS("rpc.test2"), PFS("rpc.test3"), PFS("rpc.test")}
-        result = StaffPermissions{
-            UserPositions: []PartialStaffPosition{
-                {
-                    ID:    "test",
-                    Index: 1,
-                    Perms: []Permission{PFS("~rpc.test"), PFS("rpc.test2"), PFS("rpc.test3")},
-                },
-                {
-                    ID:    "test2",
-                    Index: 2,
-                    Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
-                },
-            },
-            PermOverrides: []Permission{PFS("rpc.test")},
-        }.Resolve()
-        if !equal(result, expected) {
-            t.Errorf("Expected %v, got %v", expected, result)
-        }
-
-        // @clear
-        expected = []Permission{PFS("~rpc.test"), PFS("rpc.test2"), PFS("rpc.test3")}
-        result = StaffPermissions{
-            UserPositions: []PartialStaffPosition{
-                {
-                    ID:    "test",
-                    Index: 1,
-                    Perms: []Permission{PFS("~rpc.test"), PFS("rpc.test2")},
-                },
-                {
-                    ID:    "test",
-                    Index: 1,
-                    Perms: []Permission{PFS("global.@clear"), PFS("~rpc.test"), PFS("rpc.test2")},
-                },
-                {
-                    ID:    "test2",
-                    Index: 2,
-                    Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
-                },
-            },
-            PermOverrides: []Permission{PFS("~rpc.test"), PFS("rpc.test2"), PFS("rpc.test3")},
-        }.Resolve()
-        if !equal(result, expected) {
-            t.Errorf("Expected %v, got %v", expected, result)
-        }
-
-        // Special case of * with negators
-        expected = []Permission{PFS("rpc.*")}
-        result = StaffPermissions{
-            UserPositions: []PartialStaffPosition{
-                {
-                    ID:    "test",
-                    Index: 1,
-                    Perms: []Permission{PFS("rpc.*")},
-                },
-                {
-                    ID:    "test2",
-                    Index: 2,
-                    Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
-                },
-            },
-            PermOverrides: []Permission{},
-        }.Resolve()
-        if !equal(result, expected) {
-            t.Errorf("Expected %v, got %v", expected, result)
-        }
-
-        // Ensure special case does not apply when index is higher (2 > 1 in the below)
-        expected = []Permission{PFS("rpc.*"), PFS("~rpc.test3"), PFS("~rpc.test2")}
-        result = StaffPermissions{
-            UserPositions: []PartialStaffPosition{
-                {
-                    ID:    "test2",
-                    Index: 1,
-                    Perms: []Permission{PFS("~rpc.test3"), PFS("~rpc.test2")},
-                },
-                {
-                    ID:    "test",
-                    Index: 2,
-                    Perms: []Permission{PFS("rpc.*")},
-                },
-            },
-            PermOverrides: []Permission{},
-        }.Resolve()
-        if !equal(result, expected) {
-            t.Errorf("Expected %v, got %v", expected, result)
-        }
-
-        // Some common cases
-        // Ensure special case does not apply when index is higher (2 > 1 in the below)
-        expected = []Permission{PFS("~rpc.Claim")}
-        result = StaffPermissions{
-            UserPositions: []PartialStaffPosition{
-                {
-                    ID:    "reviewer",
-                    Index: 1,
-                    Perms: []Permission{PFS("rpc.Claim")},
-                },
-            },
-            PermOverrides: []Permission{PFS("~rpc.Claim")},
-        }.Resolve()
-        if !equal(result, expected) {
-            t.Errorf("Expected %v, got %v", expected, result)
-        }
-    }
-    */
-
-    struct __OrderedPermissionMap *opm = __new_ordered_permission_map();
+    struct __KittycatOrderedPermissionMap *opm = __kittycat_ordered_permission_map_new();
     struct kittycat_string *rpcTest = new_string("rpc.test", 8);
     struct kittycat_string *rpcTest2 = new_string("rpc.test2", 9);
     struct kittycat_string *rpcTest3 = new_string("rpc.test3", 9);
@@ -407,13 +207,13 @@ int sp_resolve__test()
     struct kittycat_string *global_clear = new_string("global.@clear", 13);
 
     // Test for basic resolution of overrides
-    struct PermissionList *expected = new_permission_list_with_perms(
-        (struct Permission *[]){
-            permission_from_str(rpcTest),
+    struct KittycatPermissionList *expected = new_kittycat_permission_list_with_perms(
+        (struct KittycatPermission *[]){
+            kittycat_permission_from_str(rpcTest),
         },
         1);
-    struct StaffPermissions *sp = new_staff_permissions();
-    permission_list_add(sp->perm_overrides, permission_from_str(rpcTest));
+    struct StaffKittycatPermissions *sp = new_staff_KittycatPermissions();
+    kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_from_str(rpcTest));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -421,14 +221,14 @@ int sp_resolve__test()
     }
 
     // Test for basic resolution of single position
-    expected = new_permission_list_with_perms(
-        (struct Permission *[]){
-            permission_from_str(rpcTest),
+    expected = new_kittycat_permission_list_with_perms(
+        (struct KittycatPermission *[]){
+            kittycat_permission_from_str(rpcTest),
         },
         1);
 
-    sp = new_staff_permissions();
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcTest)}, 1)));
+    sp = new_staff_KittycatPermissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(rpcTest)}, 1)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -436,16 +236,16 @@ int sp_resolve__test()
     }
 
     // Test for basic resolution of multiple positions
-    expected = new_permission_list_with_perms(
-        (struct Permission *[]){
-            permission_from_str(rpcTest2),
-            permission_from_str(rpcTest),
+    expected = new_kittycat_permission_list_with_perms(
+        (struct KittycatPermission *[]){
+            kittycat_permission_from_str(rpcTest2),
+            kittycat_permission_from_str(rpcTest),
         },
         2);
 
-    sp = new_staff_permissions();
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcTest)}, 1)));
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcTest2)}, 1)));
+    sp = new_staff_KittycatPermissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(rpcTest)}, 1)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(rpcTest2)}, 1)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -453,17 +253,17 @@ int sp_resolve__test()
     }
 
     // Test for basic resolution of multiple positions with negators
-    expected = new_permission_list_with_perms(
-        (struct Permission *[]){
-            permission_from_str(NrpcTest3),
-            permission_from_str(rpcTest),
-            permission_from_str(rpcTest2),
+    expected = new_kittycat_permission_list_with_perms(
+        (struct KittycatPermission *[]){
+            kittycat_permission_from_str(NrpcTest3),
+            kittycat_permission_from_str(rpcTest),
+            kittycat_permission_from_str(rpcTest2),
         },
         3);
 
-    sp = new_staff_permissions();
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcTest), permission_from_str(rpcTest2)}, 2)));
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest), permission_from_str(NrpcTest3)}, 2)));
+    sp = new_staff_KittycatPermissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(rpcTest), kittycat_permission_from_str(rpcTest2)}, 2)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(NrpcTest), kittycat_permission_from_str(NrpcTest3)}, 2)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -471,17 +271,17 @@ int sp_resolve__test()
     }
 
     // Same as above but testing negator ordering
-    expected = new_permission_list_with_perms(
-        (struct Permission *[]){
-            permission_from_str(NrpcTest3),
-            permission_from_str(NrpcTest),
-            permission_from_str(rpcTest2),
+    expected = new_kittycat_permission_list_with_perms(
+        (struct KittycatPermission *[]){
+            kittycat_permission_from_str(NrpcTest3),
+            kittycat_permission_from_str(NrpcTest),
+            kittycat_permission_from_str(rpcTest2),
         },
         3);
 
-    sp = new_staff_permissions();
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest), permission_from_str(rpcTest2)}, 2)));
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest3), permission_from_str(rpcTest)}, 2)));
+    sp = new_staff_KittycatPermissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(NrpcTest), kittycat_permission_from_str(rpcTest2)}, 2)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(NrpcTest3), kittycat_permission_from_str(rpcTest)}, 2)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -489,18 +289,18 @@ int sp_resolve__test()
     }
 
     // Now mix everything together
-    expected = new_permission_list_with_perms(
-        (struct Permission *[]){
-            permission_from_str(rpcTest2),
-            permission_from_str(rpcTest3),
-            permission_from_str(rpcTest),
+    expected = new_kittycat_permission_list_with_perms(
+        (struct KittycatPermission *[]){
+            kittycat_permission_from_str(rpcTest2),
+            kittycat_permission_from_str(rpcTest3),
+            kittycat_permission_from_str(rpcTest),
         },
         3);
 
-    sp = new_staff_permissions();
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest), permission_from_str(rpcTest2), permission_from_str(rpcTest3)}, 3)));
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest3), permission_from_str(NrpcTest2)}, 2)));
-    permission_list_add(sp->perm_overrides, permission_from_str(rpcTest));
+    sp = new_staff_KittycatPermissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(NrpcTest), kittycat_permission_from_str(rpcTest2), kittycat_permission_from_str(rpcTest3)}, 3)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(NrpcTest3), kittycat_permission_from_str(NrpcTest2)}, 2)));
+    kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_from_str(rpcTest));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -508,21 +308,21 @@ int sp_resolve__test()
     }
 
     // @clear
-    expected = new_permission_list_with_perms(
-        (struct Permission *[]){
-            permission_from_str(NrpcTest),
-            permission_from_str(rpcTest2),
-            permission_from_str(rpcTest3),
+    expected = new_kittycat_permission_list_with_perms(
+        (struct KittycatPermission *[]){
+            kittycat_permission_from_str(NrpcTest),
+            kittycat_permission_from_str(rpcTest2),
+            kittycat_permission_from_str(rpcTest3),
         },
         3);
 
-    sp = new_staff_permissions();
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest), permission_from_str(rpcTest2)}, 2)));
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(global_clear), permission_from_str(NrpcTest), permission_from_str(rpcTest2)}, 3)));
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest3), permission_from_str(NrpcTest2)}, 2)));
-    permission_list_add(sp->perm_overrides, permission_from_str(NrpcTest));
-    permission_list_add(sp->perm_overrides, permission_from_str(rpcTest2));
-    permission_list_add(sp->perm_overrides, permission_from_str(rpcTest3));
+    sp = new_staff_KittycatPermissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(NrpcTest), kittycat_permission_from_str(rpcTest2)}, 2)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(global_clear), kittycat_permission_from_str(NrpcTest), kittycat_permission_from_str(rpcTest2)}, 3)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(NrpcTest3), kittycat_permission_from_str(NrpcTest2)}, 2)));
+    kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_from_str(NrpcTest));
+    kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_from_str(rpcTest2));
+    kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_from_str(rpcTest3));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -530,15 +330,15 @@ int sp_resolve__test()
     }
 
     // Special case of * with negators
-    expected = new_permission_list_with_perms(
-        (struct Permission *[]){
-            permission_from_str(rpcStar),
+    expected = new_kittycat_permission_list_with_perms(
+        (struct KittycatPermission *[]){
+            kittycat_permission_from_str(rpcStar),
         },
         1);
 
-    sp = new_staff_permissions();
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcStar)}, 1)));
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest3), permission_from_str(NrpcTest2)}, 2)));
+    sp = new_staff_KittycatPermissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(rpcStar)}, 1)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(NrpcTest3), kittycat_permission_from_str(NrpcTest2)}, 2)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -546,17 +346,17 @@ int sp_resolve__test()
     }
 
     // Ensure special case does not apply when index is higher (2 > 1 in the below)
-    expected = new_permission_list_with_perms(
-        (struct Permission *[]){
-            permission_from_str(rpcStar),
-            permission_from_str(NrpcTest3),
-            permission_from_str(NrpcTest2),
+    expected = new_kittycat_permission_list_with_perms(
+        (struct KittycatPermission *[]){
+            kittycat_permission_from_str(rpcStar),
+            kittycat_permission_from_str(NrpcTest3),
+            kittycat_permission_from_str(NrpcTest2),
         },
         3);
 
-    sp = new_staff_permissions();
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest3), permission_from_str(NrpcTest2)}, 2)));
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcStar)}, 1)));
+    sp = new_staff_KittycatPermissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 1, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(NrpcTest3), kittycat_permission_from_str(NrpcTest2)}, 2)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 2, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(rpcStar)}, 1)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -565,15 +365,15 @@ int sp_resolve__test()
 
     // Some common cases
     // Ensure special case does not apply when index is higher (2 > 1 in the below)
-    expected = new_permission_list_with_perms(
-        (struct Permission *[]){
-            permission_from_str(NrpcClaim),
+    expected = new_kittycat_permission_list_with_perms(
+        (struct KittycatPermission *[]){
+            kittycat_permission_from_str(NrpcClaim),
         },
         1);
 
-    sp = new_staff_permissions();
-    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("reviewer", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcClaim)}, 1)));
-    permission_list_add(sp->perm_overrides, permission_from_str(NrpcClaim));
+    sp = new_staff_KittycatPermissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("reviewer", 1, new_kittycat_permission_list_with_perms((struct KittycatPermission *[]){kittycat_permission_from_str(rpcClaim)}, 1)));
+    kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_from_str(NrpcClaim));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -592,7 +392,7 @@ int sp_resolve__test()
     string_free(NrpcClaim);
     string_free(NrpcStar);
     string_free(global_clear);
-    __ordered_permission_map_free(opm);
+    __kittycat_ordered_permission_map_free(opm);
 
     return 0;
 }
@@ -601,12 +401,12 @@ int main()
 {
     printf("Running tests: %s...\n", ":)");
 
-#if defined(DECONSTRUCT_PERMISSION_CHECKS)
+#if defined(DECONSTRUCT_kittycat_permission_CHECKS)
     char *checks[] = {"bar", "global.bar", "bot.foo", "~bot.foo"};
 
     for (int i = 0; i < 4; i++)
     {
-        if (deconstruct_permission__test(checks[i]))
+        if (deconstruct_kittycat_permission__test(checks[i]))
         {
             return 1;
         }
