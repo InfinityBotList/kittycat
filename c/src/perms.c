@@ -230,7 +230,7 @@ void permission_list_free(struct PermissionList *pl)
     pl = NULL;
 }
 
-bool has_perm(struct PermissionList *perms, struct Permission *perm)
+bool has_perm(const struct PermissionList *const perms, const struct Permission *const perm)
 {
     bool has_perm = false;
     bool has_negator = false;
