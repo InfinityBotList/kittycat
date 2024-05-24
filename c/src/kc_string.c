@@ -53,7 +53,7 @@ char *string_clone_chars(struct kittycat_string *s)
     return strndup(s->str, s->len);
 }
 
-struct kittycat_string *string_substr(struct kittycat_string *s, const size_t start, const size_t end)
+struct kittycat_string *string_substr(const struct kittycat_string *const s, const size_t start, const size_t end)
 {
     size_t len = end - start;
     char *str = malloc(len + 1);
@@ -136,12 +136,12 @@ void string_arr_free(struct kittycat_string **arr, const size_t n)
     }
 }
 
-bool string_is_empty(struct kittycat_string *s)
+bool string_is_empty(const struct kittycat_string *const s)
 {
     return s == NULL || s->len == 0 || s->str == NULL;
 }
 
-bool string_is_equal(struct kittycat_string *s1, struct kittycat_string *s2)
+bool string_is_equal(const struct kittycat_string *const s1, const struct kittycat_string *const s2)
 {
     if (s1->len != s2->len)
     {
@@ -151,12 +151,12 @@ bool string_is_equal(struct kittycat_string *s1, struct kittycat_string *s2)
     return strcmp(s1->str, s2->str) == 0;
 }
 
-bool string_is_equal_char(struct kittycat_string *s, const char *c)
+bool string_is_equal_char(const struct kittycat_string *const s, const char *c)
 {
     return strcmp(s->str, c) == 0;
 }
 
-bool string_contains(struct kittycat_string *s, const char c)
+bool string_contains(const struct kittycat_string *const s, const char c)
 {
     for (size_t i = 0; i < s->len; i++)
     {
@@ -173,7 +173,7 @@ int string_print(struct kittycat_string *s, FILE *stream)
     return fwrite(s->str, sizeof(char), s->len, stream);
 }
 
-struct kittycat_string *string_trim_prefix(struct kittycat_string *s, const char c)
+struct kittycat_string *string_trim_prefix(const struct kittycat_string *const s, const char c)
 {
     size_t start = 0;
     while (s->str[start] == c)
