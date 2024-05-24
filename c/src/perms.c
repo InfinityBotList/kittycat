@@ -935,14 +935,14 @@ struct KittycatPermissionCheckPatchChangesResult kittycat_check_patch_changes(
             kittycat_permission_free(resolved_perm);
             kittycat_permission_list_free(changed);
 
-            // You do not have KittycatPermission to add this KittycatPermission: {KittycatPermission}
+            // You do not have KittycatPermission to add this permission: {perm}
             char *perm_str = kittycat_permission_to_str(perm);
 
-            char *error_msg = malloc(strlen("You do not have KittycatPermission to add this KittycatPermission: ") + strlen(perm_str) + 1);
+            char *error_msg = malloc(strlen("You do not have permission to add this permission: ") + strlen(perm_str) + 1);
             snprintf(
                 error_msg,
                 sizeof(error_msg),
-                "You do not have KittycatPermission to add this KittycatPermission: %s",
+                "You do not have permission to add this permission: %s",
                 perm_str);
 
             free(perm_str); // error_msg must be freed by caller with `kittycat_permission_check_patch_changes_result_free`
@@ -984,16 +984,16 @@ struct KittycatPermissionCheckPatchChangesResult kittycat_check_patch_changes(
                         kittycat_permission_free(resolved_perm);
                         kittycat_permission_list_free(changed);
 
-                        // You do not have KittycatPermission to add wildcard KittycatPermission {} with negators due to lack of negator {}", perm, perms
+                        // You do not have permission to add wildcard permission {} with negators due to lack of negator {}", perm, perms
                         char *perm_str = kittycat_permission_to_str(perm);
                         char *perms_str = kittycat_permission_to_str(perms);
 
-                        char *error_msg = malloc(strlen("You do not have KittycatPermission to add wildcard KittycatPermission ") + strlen(perm_str) + strlen(" with negators due to lack of negator ") + strlen(perms_str) + 1);
+                        char *error_msg = malloc(strlen("You do not have permission to add wildcard permission ") + strlen(perm_str) + strlen(" with negators due to lack of negator ") + strlen(perms_str) + 1);
 
                         snprintf(
                             error_msg,
                             sizeof(error_msg),
-                            "You do not have KittycatPermission to add wildcard KittycatPermission %s with negators due to lack of negator %s",
+                            "You do not have permission to add wildcard permission %s with negators due to lack of negator %s",
                             perm_str,
                             perm_str);
 
