@@ -997,7 +997,7 @@ struct KittycatPermissionCheckPatchChangesResult kittycat_check_patch_changes(
                             error_msg_len,
                             "You do not have permission to add wildcard permission %s with negators due to lack of negator %s",
                             perm_str,
-                            perm_str);
+                            perms_str);
 
                         free(perm_str);  // error_msg must be freed by caller with `kittycat_permission_check_patch_changes_result_free`
                         free(perms_str); // error_msg must be freed by caller with `kittycat_permission_check_patch_changes_result_free`
