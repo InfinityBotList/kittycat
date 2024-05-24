@@ -252,7 +252,7 @@ bool has_perm(const struct PermissionList *const perms, const struct Permission 
     {
         struct Permission *user_perm = perms->perms[i];
 
-#ifdef DEBUG_FULL
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
         printf("perms: Namespace: %s, Perm: %s, Negator: %s\n", perm->namespace->str, perm->perm->str, perm->negator ? "true" : "false");
         printf("user_perms: Namespace: %s, Perm: %s, Negator: %s\n", user_perm->namespace->str, user_perm->perm->str, user_perm->negator ? "true" : "false");
 #endif
@@ -263,7 +263,7 @@ bool has_perm(const struct PermissionList *const perms, const struct Permission 
             return true;
         }
 
-#ifdef DEBUG_FULL
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
         printf("NS = NS: %s, Perm = Perm: %s\n", string_is_equal(user_perm->namespace, perm->namespace) ? "true" : "false", string_is_equal(user_perm->perm, perm->perm) ? "true" : "false");
 #endif
 
@@ -410,6 +410,34 @@ void staff_permissions_free(struct StaffPermissions *sp)
     sp = NULL;
 }
 
+// Internally used for clearing permissions
+struct __intArr
+{
+    size_t *arr;
+    size_t len;
+};
+
+struct __intArr *new_int_arr()
+{
+    struct __intArr *ia = malloc(sizeof(struct __intArr));
+    ia->arr = malloc(sizeof(int32_t));
+    ia->len = 0;
+    return ia;
+}
+
+void intArr_add(struct __intArr *ia, size_t i)
+{
+    ia->arr = realloc(ia->arr, (ia->len + 1) * sizeof(size_t));
+    ia->arr[ia->len] = i;
+    ia->len++;
+}
+
+void intArr_free(struct __intArr *ia)
+{
+    free(ia->arr);
+    free(ia);
+}
+
 // A hashmap of permissions that are ordered
 //
 // Note that this struct is *unstable* and has ZERO API stability guarantees
@@ -425,6 +453,9 @@ uint64_t __permissionwc_hash(const void *item, uint64_t seed0, uint64_t seed1)
     const struct Permission *pc = item;
     struct Permission *p = (struct Permission *)pc;
     char *perm_str = permission_to_str(p);
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+    printf("__permissionwc_hash: Hashing permission %s\n", perm_str);
+#endif
     uint64_t hash = hashmap_sip(perm_str, strlen(perm_str), seed0, seed1);
     free(perm_str);
     return hash;
@@ -441,6 +472,10 @@ int __permissionwc_compare(const void *a, const void *b, void *udata)
     char *pb_str = permission_to_str(pb);
 
     int cmp = strcmp(pa_str, pb_str);
+
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+    printf("__permissionwc_compare: Comparing %s and %s: %d\n", pa_str, pb_str, cmp);
+#endif
 
     free(pa_str);
     free(pb_str);
@@ -459,6 +494,12 @@ struct __OrderedPermissionMap *__new_ordered_permission_map()
 
 struct Permission *__ordered_permission_map_get(struct __OrderedPermissionMap *opm, struct Permission *perm)
 {
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+    char *perm_str = permission_to_str(perm);
+    printf("__ordered_permission_map_get: Getting permission %s\n", perm_str);
+    free(perm_str);
+#endif
+
     const void *pwc_void = hashmap_get(opm->map, perm);
     if (pwc_void == NULL)
     {
@@ -468,26 +509,52 @@ struct Permission *__ordered_permission_map_get(struct __OrderedPermissionMap *o
     return pwc;
 }
 
-struct Permission *__ordered_permission_map_rm(struct __OrderedPermissionMap *opm, struct Permission *perm)
+// Deletes the permission from the ordered permission map
+struct Permission *__ordered_permission_map_del(struct __OrderedPermissionMap *opm, struct Permission *perm)
 {
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+    char *perm_str = permission_to_str(perm);
+    printf("__ordered_permission_map_del: Deleting permission %s\n", perm_str);
+    free(perm_str);
+#endif
+
     const void *pwc_void = hashmap_delete(opm->map, perm);
 
     if (pwc_void == NULL)
     {
-        // Nothing was deleted
+// Nothing was deleted
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+        char *perm_str = permission_to_str(perm);
+        printf("__ordered_permission_map_del: Permission %s not found in map\n", perm_str);
+        free(perm_str);
+#endif
         return NULL;
     }
 
     struct Permission *pwc = (struct Permission *)pwc_void;
-    opm->len = hashmap_count(opm->map);
-    opm->order = realloc(opm->order, (opm->len * sizeof(struct Permission *)));
-    return pwc;
-}
 
-// Delete = rm+free
-void __ordered_permission_map_del(struct __OrderedPermissionMap *opm, struct Permission *perm)
-{
-    __ordered_permission_map_rm(opm, perm);
+    // Find the index of the permission in the order
+    size_t index = 0;
+
+    for (size_t i = 0; i < opm->len; i++)
+    {
+        if (hashmap_get(opm->map, opm->order[i]) == NULL)
+        {
+            index = i;
+            break;
+        }
+    }
+
+    // Remove the permission from the order
+    for (size_t i = index; i < opm->len - 1; i++)
+    {
+        opm->order[i] = opm->order[i + 1];
+    }
+
+    // Now set length correctly, as we have removed needed element
+    opm->len = hashmap_count(opm->map);
+
+    return pwc;
 }
 
 void __ordered_permission_map_free(struct __OrderedPermissionMap *opm)
@@ -504,12 +571,51 @@ void __ordered_permission_map_free(struct __OrderedPermissionMap *opm)
     opm = NULL;
 }
 
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+void __ordered_permission_map_printf_dbg(struct __OrderedPermissionMap *opm)
+{
+    for (size_t i = 0; i < opm->len; i++)
+    {
+        struct Permission *perm = opm->order[i];
+        char *perm_str = permission_to_str(perm);
+        printf("order iter: %s\n", perm_str);
+        free(perm_str);
+    }
+
+    void *item;
+    size_t i = 0;
+    while (hashmap_iter(opm->map, &i, &item))
+    {
+        struct Permission *perm = item;
+        char *perm_str = permission_to_str(perm);
+        printf("applied perm: %s\n", perm_str);
+        free(perm_str);
+    }
+}
+#endif
+
 void __ordered_permission_map_set(struct __OrderedPermissionMap *opm, struct Permission *p)
 {
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+    char *perm_str = permission_to_str(p);
+    printf("__ordered_permission_map_set: Setting permission %s\n", perm_str);
+    free(perm_str);
+#endif
+
     hashmap_set(opm->map, p);
     opm->len = hashmap_count(opm->map);
     opm->order = realloc(opm->order, (opm->len * sizeof(struct Permission *)));
     opm->order[opm->len - 1] = p;
+
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+    perm_str = permission_to_str(p);
+    printf("__ordered_permission_map_set: Successfully set permission %s\n", perm_str);
+    free(perm_str);
+#endif
+
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+    __ordered_permission_map_printf_dbg(opm);
+#endif
 }
 
 void __ordered_permission_map_clear(struct __OrderedPermissionMap *opm)
@@ -531,15 +637,15 @@ struct PermissionList *__staff_permissions_resolve(const struct StaffPermissions
 {
     struct PartialStaffPositionList *userPositions = new_partial_staff_position_list();
 
-    // Add the permission overrides as index 0
-    struct PartialStaffPosition *permOverrides = new_partial_staff_position("perm_overrides", 0, sp->perm_overrides);
-    partial_staff_position_list_add(userPositions, permOverrides);
-
     for (size_t i = 0; i < sp->user_positions->len; i++)
     {
         struct PartialStaffPosition *pos = sp->user_positions->positions[i];
         partial_staff_position_list_add(userPositions, pos);
     }
+
+    // Add the permission overrides as index 0
+    struct PartialStaffPosition *permOverrides = new_partial_staff_position("perm_overrides", 0, sp->perm_overrides);
+    partial_staff_position_list_add(userPositions, permOverrides);
 
     // Sort the positions by index in descending order
     for (size_t i = 0; i < userPositions->len; i++)
@@ -555,7 +661,7 @@ struct PermissionList *__staff_permissions_resolve(const struct StaffPermissions
         }
     }
 
-#ifdef DEBUG
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
     // Send list of positions
     for (size_t i = 0; i < userPositions->len; i++)
     {
@@ -582,14 +688,22 @@ struct PermissionList *__staff_permissions_resolve(const struct StaffPermissions
                 else
                 {
                     // Clear all perms with this namespace
+                    struct __intArr *toRemove = new_int_arr();
                     for (size_t k = 0; k < opm->len; k++)
                     {
                         struct Permission *key = opm->order[k];
                         if (string_is_equal(key->namespace, perm->namespace))
                         {
-                            __ordered_permission_map_del(opm, key);
+                            intArr_add(toRemove, k);
                         }
                     }
+
+                    for (size_t k = 0; k < toRemove->len; k++)
+                    {
+                        __ordered_permission_map_del(opm, opm->order[toRemove->arr[k]]);
+                    }
+
+                    intArr_free(toRemove);
                 }
 
                 continue;
@@ -602,7 +716,7 @@ struct PermissionList *__staff_permissions_resolve(const struct StaffPermissions
                 struct Permission *pwc = __ordered_permission_map_get(opm, nonNegated);
                 if (pwc != NULL)
                 {
-#ifdef DEBUG
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
                     printf("Non-negated exists for %s\n", permission_to_str(nonNegated));
 #endif
 
@@ -617,15 +731,17 @@ struct PermissionList *__staff_permissions_resolve(const struct StaffPermissions
                     struct Permission *pwc = __ordered_permission_map_get(opm, perm);
                     if (pwc != NULL)
                     {
-#ifdef DEBUG
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
                         printf("Non-negated exists for %s\n", permission_to_str(perm));
 #endif
                         // Case 3: The negator is already applied, so we can ignore it
                         permission_free(nonNegated);
                         continue;
                     }
-#ifdef DEBUG
-                    printf("Non-negated does not exist for %s\n", permission_to_str(perm));
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+                    char *perm_str = permission_to_str(perm);
+                    printf("Non-negated does not exist for %s\n", perm_str);
+                    free(perm_str);
 #endif
 
                     // Then we can freely add the negator
@@ -640,6 +756,7 @@ struct PermissionList *__staff_permissions_resolve(const struct StaffPermissions
                 if (string_is_equal_char(perm->perm, "*"))
                 {
                     // Remove negators. As the permissions are sorted, we can just check if a negator is in the hashmap
+                    struct __intArr *toRemove = new_int_arr();
                     for (size_t k = 0; k < opm->len; k++)
                     {
                         struct Permission *key = opm->order[k];
@@ -650,17 +767,27 @@ struct PermissionList *__staff_permissions_resolve(const struct StaffPermissions
                         if (string_is_equal(key->namespace, perm->namespace))
                         {
                             // Then we can ignore this negator
-                            __ordered_permission_map_del(opm, key);
+                            intArr_add(toRemove, k);
                         }
                     }
+
+                    for (size_t k = 0; k < toRemove->len; k++)
+                    {
+                        __ordered_permission_map_del(opm, opm->order[toRemove->arr[k]]);
+                    }
+                    intArr_free(toRemove);
                 }
                 // If its not a negator, first check if there's a negator
                 struct Permission *negated = new_permission(perm->namespace, perm->perm, true);
                 struct Permission *pwc = __ordered_permission_map_get(opm, negated);
                 if (pwc != NULL)
                 {
-#ifdef DEBUG
-                    printf("Negator exists for %s\n", permission_to_str(negated));
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+                    char *perm_str = permission_to_str(negated);
+                    char *negated_str = permission_to_str(pwc);
+                    printf("Negator exists for %s as %s\n", perm_str, negated_str);
+                    free(perm_str);
+                    free(negated_str);
 #endif
                     // Remove old permission
                     __ordered_permission_map_del(opm, negated);
@@ -686,21 +813,24 @@ struct PermissionList *__staff_permissions_resolve(const struct StaffPermissions
         }
     }
 
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+    __ordered_permission_map_printf_dbg(opm);
+#endif
+
     struct PermissionList *appliedPerms = new_permission_list();
 
     for (size_t i = 0; i < opm->len; i++)
     {
         struct Permission *perm = opm->order[i];
+#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
+        char *perm_str = permission_to_str(perm);
+        printf("order iter: %s\n", perm_str);
+        free(perm_str);
+#endif
         // Copy the permission
         struct Permission *new_perm = new_permission(perm->namespace, perm->perm, perm->negator);
         permission_list_add(appliedPerms, new_perm);
     }
-
-#ifdef DEBUG
-    struct kittycat_string *appliedPermsStr = permission_list_join(appliedPerms, ", ");
-    printf("Applied perms: %s with hashmap: %p\n", appliedPermsStr->str, opm->map);
-    string_free(appliedPermsStr);
-#endif
 
     string_free(permOverrides->id);
     free(permOverrides);

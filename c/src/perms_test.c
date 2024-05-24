@@ -404,6 +404,13 @@ int sp_resolve__test()
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
+        string_free(rpcTest);
+        string_free(rpcTest2);
+        string_free(rpcTest3);
+        string_free(NrpcTest);
+        string_free(NrpcTest2);
+        string_free(NrpcTest3);
+        __ordered_permission_map_free(opm);
         return 1;
     }
 
@@ -419,6 +426,13 @@ int sp_resolve__test()
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
+        string_free(rpcTest);
+        string_free(rpcTest2);
+        string_free(rpcTest3);
+        string_free(NrpcTest);
+        string_free(NrpcTest2);
+        string_free(NrpcTest3);
+        __ordered_permission_map_free(opm);
         return 1;
     }
 
@@ -436,11 +450,19 @@ int sp_resolve__test()
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
+        string_free(rpcTest);
+        string_free(rpcTest2);
+        string_free(rpcTest3);
+        string_free(NrpcTest);
+        string_free(NrpcTest2);
+        string_free(NrpcTest3);
+        __ordered_permission_map_free(opm);
+
         return 1;
     }
 
     // Test for basic resolution of multiple positions with negators
-    /*expected = new_permission_list_with_perms(
+    expected = new_permission_list_with_perms(
         (struct Permission *[]){
             permission_from_str(NrpcTest3),
             permission_from_str(rpcTest),
@@ -454,9 +476,15 @@ int sp_resolve__test()
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
-         return 1;
+        string_free(rpcTest);
+        string_free(rpcTest2);
+        string_free(rpcTest3);
+        string_free(NrpcTest);
+        string_free(NrpcTest2);
+        string_free(NrpcTest3);
+        __ordered_permission_map_free(opm);
+        return 1;
     }
-    */
 
     // Free memory
     string_free(rpcTest);
