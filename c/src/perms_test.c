@@ -2,12 +2,12 @@
 
 int deconstruct_permission__test(char *perm)
 {
-    struct string *perm_str = string_from_char(perm);
+    struct string *perm_str = new_string(perm, strlen(perm));
     struct Permission *p = permission_from_str(perm_str);
-    string_free(perm_str);
 
     if (p == NULL)
     {
+        string_free(perm_str);
         printf("ERROR: Permission is NULL\n");
         return 1;
     }
@@ -22,6 +22,7 @@ int deconstruct_permission__test(char *perm)
     }
 
     permission_free(p);
+    string_free(perm_str);
 
     return 0;
 }
@@ -32,14 +33,14 @@ bool has_perm_test_impl(char **str, char *perm, size_t len)
 
     for (size_t i = 0; i < len; i++)
     {
-        struct string *perm_str = string_from_char(str[i]);
+        struct string *perm_str = new_string(str[i], strlen(str[i]));
         struct Permission *p = permission_from_str(perm_str);
         string_free(perm_str);
 
         permission_list_add(perms, p);
     }
 
-    struct string *perm_str = string_from_char(perm);
+    struct string *perm_str = new_string(perm, strlen(perm));
     struct Permission *p = permission_from_str(perm_str);
     struct string *permlist_joined = permission_list_join(perms, ", ");
 
@@ -383,7 +384,7 @@ int sp_resolve__test()
     }
     */
 
-    struct string *rpcTest = string_from_char("rpc.test");
+    struct string *rpcTest = new_string("rpc.test", 8);
 
     // Test for basic resolution of overrides
     struct PermissionList *expected = new_permission_list();

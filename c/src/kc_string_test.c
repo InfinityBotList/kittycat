@@ -5,7 +5,7 @@ int main()
     printf("Running tests: %s...\n", ":)");
 
     char *str = "test.bc";
-    struct string *s = string_from_char(str);
+    struct string *s = new_string(str, strlen(str));
 
     struct string *out[2];
     string_splitn(s, '.', out, 2);
@@ -20,10 +20,9 @@ int main()
     string_arr_free(out, 2);
     string_free(s);
 
-    s = string_from_char("abc");
+    s = new_string("abc", 3);
 
     struct string *out2[2];
-
     string_splitn(s, '.', out2, 2);
 
     printf("Namespace: %s\n", out2[0]->str);

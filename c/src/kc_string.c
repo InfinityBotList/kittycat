@@ -9,31 +9,40 @@ struct string
 {
     char *str;
     size_t len;
+    bool isCloned;
 };
 
 // Create a new string
 //
 // Note: callers must free the string after use using `string_free`
+// Note 2: Callers must manually call strndup if the string should be copied (or use new_string_cloned)
 struct string *new_string(char *str, const size_t len)
+{
+    struct string *s = malloc(sizeof(struct string));
+    s->str = str;
+    s->len = len;
+    s->isCloned = false;
+    return s;
+}
+
+// Create a new string
+//
+// Note: callers must free the string after use using `string_free`
+// Note 2: Callers must manually call strndup if the string should be copied (or use new_string_cloned)
+struct string *new_string_cloned(char *str, const size_t len)
 {
     char *cp_str = strndup(str, len); // Copy the string to prevent memory leaks
     struct string *s = malloc(sizeof(struct string));
     s->str = cp_str;
     s->len = len;
+    s->isCloned = true;
     return s;
-}
-
-// Create a new string from a char array
-struct string *string_from_char(char *str)
-{
-    size_t len = strlen(str);
-    return new_string(str, len);
 }
 
 // Clone a string
 struct string *string_clone(struct string *s)
 {
-    return new_string(s->str, s->len);
+    return new_string_cloned(s->str, s->len);
 }
 
 // Clone the chars of a string
@@ -45,10 +54,11 @@ char *string_clone_chars(struct string *s)
 struct string *string_substr(struct string *s, const size_t start, const size_t end)
 {
     size_t len = end - start;
-    char *str = malloc(len);
+    char *str = malloc(len + 1);
     memcpy(str, s->str + start, len);
+    str[len] = '\0'; // Null terminate the string
     struct string *ns = new_string(str, len);
-    free(str); // Free string now that we have copied it
+    ns->isCloned = true; // Mark as cloned as string_substr copies to another string
     return ns;
 }
 
@@ -85,11 +95,12 @@ void string_splitn(struct string *s, const char sep, struct string **out, const 
 struct string *string_concat(struct string *s1, struct string *s2)
 {
     size_t len = s1->len + s2->len;
-    char *str = malloc(len);                  // Allocate memory for the concatenated string
+    char *str = malloc(len + 1);              // Allocate memory for the concatenated string + 1 for null terminator
     memcpy(str, s1->str, s1->len);            // Copy the first string
     memcpy(str + s1->len, s2->str, s2->len);  // Copy the second string
+    str[len] = '\0';                          // Null terminate the string
     struct string *ns = new_string(str, len); // Return the concatenated string
-    free(str);                                // Free the memory allocated for the concatenated string
+    ns->isCloned = true;                      // Mark as cloned as string_concat copies to another string
     return ns;
 }
 
@@ -103,7 +114,11 @@ void string_free(struct string *s)
     // Already freed if NULL
     if (s == NULL)
         return;
-    free(s->str); // Free the string
+    if (s->isCloned)
+    {
+        free(s->str); // Free the string
+        s->str = NULL;
+    }
     free(s);
     s = NULL;
 }

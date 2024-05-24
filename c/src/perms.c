@@ -11,8 +11,8 @@ struct Permission
 struct Permission *new_permission(char *namespace, char *perm, bool negator)
 {
     struct Permission *p = malloc(sizeof(struct Permission));
-    p->namespace = string_from_char(namespace);
-    p->perm = string_from_char(perm);
+    p->namespace = new_string(namespace, strlen(namespace));
+    p->perm = new_string(perm, strlen(perm));
     p->negator = negator;
     return p;
 }
@@ -21,7 +21,7 @@ struct Permission *new_permission(char *namespace, char *perm, bool negator)
 //
 // Note 1: Caller must free the permission after use using `permission_free`
 // Note 2: The string must be in the format `namespace.perm`
-// Note 3: This function may modify the string inputted
+// Note 3: This function does not clone the string
 struct Permission *permission_from_str(struct string *str)
 {
     if (str->len == 0)
@@ -55,16 +55,14 @@ struct Permission *permission_from_str(struct string *str)
         p = new_permission(str_split[0]->str, str_split[1]->str, negator);
     }
 
-    string_arr_free(str_split, 2);
-
     return p;
 }
 
 char *permission_to_str(struct Permission *p)
 {
     // Permissions are of the form `namespace.perm`
-    char *namespace = strndup(p->namespace->str, p->namespace->len);
-    char *perm = strndup(p->perm->str, p->perm->len);
+    char *namespace = string_clone_chars(p->namespace);
+    char *perm = string_clone_chars(p->perm);
 
     char *finalPerm;
 
@@ -156,10 +154,9 @@ struct string *permission_list_join(struct PermissionList *pl, char *sep)
     for (size_t i = 0; i < pl->len; i++)
     {
         char *perm_chararr = permission_to_str(pl->perms[i]);
-        struct string *perm_str = string_from_char(perm_chararr);
-        free(perm_chararr);
+        struct string *perm_str = new_string(perm_chararr, strlen(perm_chararr));
         struct string *new_joined = string_concat(joined, perm_str);
-
+        free(perm_chararr); // SAFETY: string_concat creates a copy of the string
         if (i != pl->len - 1)
         {
             struct string *sep_str = new_string(sep, strlen(sep));
@@ -290,7 +287,7 @@ struct PartialStaffPositionList
 struct PartialStaffPosition *new_partial_staff_position(char *id, int32_t index, struct PermissionList *perms)
 {
     struct PartialStaffPosition *p = malloc(sizeof(struct PartialStaffPosition));
-    p->id = string_from_char(id);
+    p->id = new_string(id, strlen(id));
     p->index = index;
     p->perms = perms;
     return p;
