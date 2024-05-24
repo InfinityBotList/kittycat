@@ -5,9 +5,9 @@ int main()
     printf("Running tests: %s...\n", ":)");
 
     char *str = "test.bc";
-    struct string *s = new_string(str, strlen(str));
+    struct kittycat_string *s = new_string(str, strlen(str));
 
-    struct string *out[2];
+    struct kittycat_string *out[2];
     string_splitn(s, '.', out, 2);
 
     printf("Namespace: %s\n", out[0]->str);
@@ -22,7 +22,7 @@ int main()
 
     s = new_string("abc", 3);
 
-    struct string *out2[2];
+    struct kittycat_string *out2[2];
     string_splitn(s, '.', out2, 2);
 
     printf("Namespace: %s\n", out2[0]->str);
@@ -35,10 +35,10 @@ int main()
     // Free s
     string_free(s);
 
-    struct string *s1 = new_string("abc", 3);
-    struct string *s2 = new_string("def", 3);
+    struct kittycat_string *s1 = new_string("abc", 3);
+    struct kittycat_string *s2 = new_string("def", 3);
 
-    struct string *s3 = string_concat(s1, s2);
+    struct kittycat_string *s3 = string_concat(s1, s2);
 
     printf("Concatenated: %s\n", s3->str);
     printf("Concatenated len: %zu\n", s3->len);

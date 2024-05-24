@@ -3,13 +3,13 @@
 
 struct Permission
 {
-    struct string *namespace;
-    struct string *perm;
+    struct kittycat_string *namespace;
+    struct kittycat_string *perm;
     bool negator;
     bool isCloned;
 };
 
-struct Permission *new_permission(struct string *namespace, struct string *perm, bool negator)
+struct Permission *new_permission(struct kittycat_string *namespace, struct kittycat_string *perm, bool negator)
 {
     struct Permission *p = malloc(sizeof(struct Permission));
     p->namespace = namespace;
@@ -19,7 +19,7 @@ struct Permission *new_permission(struct string *namespace, struct string *perm,
     return p;
 }
 
-struct Permission *new_permission_cloned(struct string *namespace, struct string *perm, bool negator)
+struct Permission *new_permission_cloned(struct kittycat_string *namespace, struct kittycat_string *perm, bool negator)
 {
     struct Permission *p = malloc(sizeof(struct Permission));
     p->namespace = string_clone(namespace);
@@ -33,14 +33,14 @@ struct Permission *new_permission_cloned(struct string *namespace, struct string
 //
 // Note 1: Caller must free the permission after use using `permission_free`
 // Note 2: The string must be in the format `namespace.perm`
-struct Permission *permission_from_str(struct string *str)
+struct Permission *permission_from_str(struct kittycat_string *str)
 {
     if (str->len == 0)
     {
         return NULL;
     }
 
-    struct string *str_split[2];
+    struct kittycat_string *str_split[2];
     string_splitn(str, '.', str_split, 2);
 
     // If first character is ~, then it is a negator
@@ -49,7 +49,7 @@ struct Permission *permission_from_str(struct string *str)
     // If negator, remove the ~
     if (negator)
     {
-        struct string *new_perm = string_trim_prefix(str_split[0], '~');
+        struct kittycat_string *new_perm = string_trim_prefix(str_split[0], '~');
         string_free(str_split[0]);
         str_split[0] = new_perm;
     }
@@ -154,20 +154,20 @@ void permission_list_rm(struct PermissionList *pl, size_t i)
 //
 // The canonical string representation is used for each individual input permission
 // The returned string must be freed by the caller
-struct string *permission_list_join(struct PermissionList *pl, char *sep)
+struct kittycat_string *permission_list_join(struct PermissionList *pl, char *sep)
 {
-    struct string *joined = new_string("", 0);
+    struct kittycat_string *joined = new_string("", 0);
 
     for (size_t i = 0; i < pl->len; i++)
     {
         char *perm_chararr = permission_to_str(pl->perms[i]);
-        struct string *perm_str = new_string(perm_chararr, strlen(perm_chararr));
-        struct string *new_joined = string_concat(joined, perm_str);
+        struct kittycat_string *perm_str = new_string(perm_chararr, strlen(perm_chararr));
+        struct kittycat_string *new_joined = string_concat(joined, perm_str);
         free(perm_chararr); // SAFETY: string_concat creates a copy of the string
         if (i != pl->len - 1)
         {
-            struct string *sep_str = new_string(sep, strlen(sep));
-            struct string *new_joined_sep = string_concat(new_joined, sep_str);
+            struct kittycat_string *sep_str = new_string(sep, strlen(sep));
+            struct kittycat_string *new_joined_sep = string_concat(new_joined, sep_str);
             string_free(sep_str);
             string_free(joined);
             string_free(new_joined);
@@ -274,7 +274,7 @@ bool has_perm(struct PermissionList *perms, struct Permission *perm)
 struct PartialStaffPosition
 {
     // The id of the position
-    struct string *id;
+    struct kittycat_string *id;
     // The index of the permission. Lower means higher in the list of hierarchy
     int32_t index;
     // The preset permissions of this position
@@ -661,7 +661,7 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
     }
 
 #ifdef DEBUG
-    struct string *appliedPermsStr = permission_list_join(appliedPerms, ", ");
+    struct kittycat_string *appliedPermsStr = permission_list_join(appliedPerms, ", ");
     printf("Applied perms: %s with hashmap: %p\n", appliedPermsStr->str, opm->map);
     string_free(appliedPermsStr);
 #endif

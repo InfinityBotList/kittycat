@@ -2,7 +2,7 @@
 
 int deconstruct_permission__test(char *perm)
 {
-    struct string *perm_str = new_string(perm, strlen(perm));
+    struct kittycat_string *perm_str = new_string(perm, strlen(perm));
     struct Permission *p = permission_from_str(perm_str);
 
     if (p == NULL)
@@ -33,16 +33,16 @@ bool has_perm_test_impl(char **str, char *perm, size_t len)
 
     for (size_t i = 0; i < len; i++)
     {
-        struct string *perm_str = new_string(str[i], strlen(str[i]));
+        struct kittycat_string *perm_str = new_string(str[i], strlen(str[i]));
         struct Permission *p = permission_from_str(perm_str);
         string_free(perm_str);
 
         permission_list_add(perms, p);
     }
 
-    struct string *perm_str = new_string(perm, strlen(perm));
+    struct kittycat_string *perm_str = new_string(perm, strlen(perm));
     struct Permission *p = permission_from_str(perm_str);
-    struct string *permlist_joined = permission_list_join(perms, ", ");
+    struct kittycat_string *permlist_joined = permission_list_join(perms, ", ");
 
     printf("Checking permission: %s against [%s] (len=%zu)\n", perm_str->str, permlist_joined->str, perms->len);
 
@@ -167,8 +167,8 @@ bool sp_resolve_test_impl(struct StaffPermissions *sp, struct PermissionList *ex
 {
     struct PermissionList *perms = staff_permissions_resolve(sp);
 
-    struct string *expected_perms_str = permission_list_join(expected_perms, ", ");
-    struct string *perms_str = permission_list_join(perms, ", ");
+    struct kittycat_string *expected_perms_str = permission_list_join(expected_perms, ", ");
+    struct kittycat_string *perms_str = permission_list_join(perms, ", ");
     bool res = permission_lists_equal(perms, expected_perms);
 
     printf("Expected: [%s], got [%s], isEqual=%s\n", expected_perms_str->str, perms_str->str, res ? "true" : "false");
@@ -384,7 +384,7 @@ int sp_resolve__test()
     }
     */
 
-    struct string *rpcTest = new_string("rpc.test", 8);
+    struct kittycat_string *rpcTest = new_string("rpc.test", 8);
 
     // Test for basic resolution of overrides
     struct PermissionList *expected = new_permission_list();
