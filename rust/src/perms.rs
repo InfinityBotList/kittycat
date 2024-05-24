@@ -254,12 +254,46 @@ pub fn has_perm_str(perms: &[String], perm: &str) -> bool {
     has_perm(&perms, &perm)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CheckPatchChangesError {
+    NoPermission {
+        permission: Permission,
+    },
+    LacksNegatorForWildcard {
+        wildcard: Permission,
+        negator: Permission,
+    },
+}
+
+impl std::fmt::Display for CheckPatchChangesError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CheckPatchChangesError::NoPermission { permission } => {
+                write!(
+                    f,
+                    "You do not have permission to add this permission: {}",
+                    permission
+                )
+            }
+            CheckPatchChangesError::LacksNegatorForWildcard { wildcard, negator } => {
+                write!(
+                    f,
+                    "You do not have permission to add wildcard permission {} with negators due to lack of negator {}",
+                    wildcard, negator
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for CheckPatchChangesError {}
+
 /// Checks whether or not a resolved set of permissions allows the addition or removal of a permission to a position
 pub fn check_patch_changes(
     manager_perms: &[Permission],
     current_perms: &[Permission],
     new_perms: &[Permission],
-) -> Result<(), crate::Error> {
+) -> Result<(), CheckPatchChangesError> {
     // Take the symmetric_difference between current_perms and new_perms
     let hset_1 = current_perms
         .iter()
@@ -272,20 +306,18 @@ pub fn check_patch_changes(
         .cloned()
         .collect::<Vec<&Permission>>();
     for perm in changed {
-        let mut resolved_perm = perm.clone();
-
-        if perm.negator {
-            // Strip the namespace to check it
-            resolved_perm.negator = false;
-        }
+        // Strip the namespace to check it
+        let resolved_perm = Permission {
+            namespace: perm.namespace.clone(),
+            perm: perm.perm.clone(),
+            negator: false,
+        };
 
         // Check if the user has the permission
         if !has_perm(manager_perms, &resolved_perm) {
-            return Err(format!(
-                "You do not have permission to add this permission: {}",
-                resolved_perm
-            )
-            .into());
+            return Err(CheckPatchChangesError::NoPermission {
+                permission: perm.clone(),
+            });
         }
 
         if perm.perm == "*" {
@@ -298,7 +330,10 @@ pub fn check_patch_changes(
                 if perms.namespace == perm.namespace {
                     // Then we have a negator in the same namespace
                     if !new_perms.contains(perms) {
-                        return Err(format!("You do not have permission to add wildcard permission {} with negators due to lack of negator {}", perm, perms).into());
+                        return Err(CheckPatchChangesError::LacksNegatorForWildcard {
+                            wildcard: perm.clone(),
+                            negator: perms.clone(),
+                        });
                     }
                 }
             }
@@ -312,7 +347,7 @@ pub fn check_patch_changes_str(
     manager_perms: &[String],
     current_perms: &[String],
     new_perms: &[String],
-) -> Result<(), crate::Error> {
+) -> Result<(), CheckPatchChangesError> {
     let manager_perms = manager_perms
         .iter()
         .map(|x| Permission::from_string(x))
