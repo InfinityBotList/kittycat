@@ -92,6 +92,9 @@ void string_splitn(struct string *s, const char sep, struct string **out, const 
     }
 }
 
+// Concatenate two strings together
+//
+// Note: this returns a new string that must be freed by the caller
 struct string *string_concat(struct string *s1, struct string *s2)
 {
     size_t len = s1->len + s2->len;

@@ -6,14 +6,26 @@ struct Permission
     struct string *namespace;
     struct string *perm;
     bool negator;
+    bool isCloned;
 };
 
-struct Permission *new_permission(char *namespace, char *perm, bool negator)
+struct Permission *new_permission(struct string *namespace, struct string *perm, bool negator)
 {
     struct Permission *p = malloc(sizeof(struct Permission));
-    p->namespace = new_string(namespace, strlen(namespace));
-    p->perm = new_string(perm, strlen(perm));
+    p->namespace = namespace;
+    p->perm = perm;
     p->negator = negator;
+    p->isCloned = false;
+    return p;
+}
+
+struct Permission *new_permission_cloned(struct string *namespace, struct string *perm, bool negator)
+{
+    struct Permission *p = malloc(sizeof(struct Permission));
+    p->namespace = string_clone(namespace);
+    p->perm = string_clone(perm);
+    p->negator = negator;
+    p->isCloned = true;
     return p;
 }
 
@@ -21,7 +33,6 @@ struct Permission *new_permission(char *namespace, char *perm, bool negator)
 //
 // Note 1: Caller must free the permission after use using `permission_free`
 // Note 2: The string must be in the format `namespace.perm`
-// Note 3: This function does not clone the string
 struct Permission *permission_from_str(struct string *str)
 {
     if (str->len == 0)
@@ -41,18 +52,20 @@ struct Permission *permission_from_str(struct string *str)
         struct string *new_perm = string_trim_prefix(str_split[0], '~');
         string_free(str_split[0]);
         str_split[0] = new_perm;
-        str_split[0]->len--;
     }
 
     // If perm is empty, then namespace is global and perm is first part
     struct Permission *p;
     if (string_is_empty(str_split[1]))
     {
-        p = new_permission("global", str_split[0]->str, negator);
+        string_free(str_split[1]);
+        p = new_permission(new_string("global", strlen("global")), str_split[0], negator);
+        p->isCloned = true; // substr clones the string, so flag it as cloned
     }
     else
     {
-        p = new_permission(str_split[0]->str, str_split[1]->str, negator);
+        p = new_permission(str_split[0], str_split[1], negator);
+        p->isCloned = true; // substr clones the string, so flag it as cloned
     }
 
     return p;
@@ -85,24 +98,17 @@ char *permission_to_str(struct Permission *p)
 
 void permission_free(struct Permission *p)
 {
-    // Already freed if NULL
-    if (p == NULL)
-    {
-        return;
-    }
+#if defined(DEBUG_FULL) || defined(DEBUG_FREE)
+    printf("Freeing permission with ns %s and perm %s at ptr %p\n", p->namespace->str, p->perm->str, p);
+#endif
 
-    if (p->namespace != NULL)
+    // Only call string_free if new_permission_cloned was used
+    if (p->isCloned)
     {
         string_free(p->namespace);
-        p->namespace = NULL;
-    }
-    if (p->perm != NULL)
-    {
         string_free(p->perm);
-        p->perm = NULL;
     }
     free(p);
-    p = NULL;
 }
 
 struct PermissionList
@@ -147,6 +153,7 @@ void permission_list_rm(struct PermissionList *pl, size_t i)
 // Joins a permission list to produce a string
 //
 // The canonical string representation is used for each individual input permission
+// The returned string must be freed by the caller
 struct string *permission_list_join(struct PermissionList *pl, char *sep)
 {
     struct string *joined = new_string("", 0);
@@ -222,19 +229,6 @@ void permission_list_free(struct PermissionList *pl)
     pl = NULL;
 }
 
-void permission_list_partial_free(struct PermissionList *pl)
-{
-    if (pl == NULL)
-    {
-        return;
-    }
-
-    free(pl->perms);
-    pl->perms = NULL;
-    free(pl);
-    pl = NULL;
-}
-
 bool has_perm(struct PermissionList *perms, struct Permission *perm)
 {
     bool has_perm = false;
@@ -244,11 +238,20 @@ bool has_perm(struct PermissionList *perms, struct Permission *perm)
     {
         struct Permission *user_perm = perms->perms[i];
 
+#ifdef DEBUG_FULL
+        printf("perms: Namespace: %s, Perm: %s, Negator: %s\n", perm->namespace->str, perm->perm->str, perm->negator ? "true" : "false");
+        printf("user_perms: Namespace: %s, Perm: %s, Negator: %s\n", user_perm->namespace->str, user_perm->perm->str, user_perm->negator ? "true" : "false");
+#endif
+
         // Special case of global.*
         if (!user_perm->negator && string_is_equal_char(user_perm->namespace, "global") && string_is_equal_char(user_perm->perm, "*"))
         {
             return true;
         }
+
+#ifdef DEBUG_FULL
+        printf("NS = NS: %s, Perm = Perm: %s\n", string_is_equal(user_perm->namespace, perm->namespace) ? "true" : "false", string_is_equal(user_perm->perm, perm->perm) ? "true" : "false");
+#endif
 
         if ((string_is_equal(user_perm->namespace, perm->namespace) || string_is_equal_char(user_perm->namespace, "global")) &&
             (string_is_equal_char(user_perm->perm, "*") || string_is_equal(user_perm->perm, perm->perm)))
@@ -514,7 +517,7 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
         for (size_t j = 0; j < pos->perms->len; j++)
         {
             struct Permission *perm = pos->perms->perms[j];
-            permission_list_add(perms, new_permission(perm->namespace->str, perm->perm->str, perm->negator));
+            permission_list_add(perms, new_permission(perm->namespace, perm->perm, perm->negator));
         }
         partial_staff_position_list_add(userPositions, new_partial_staff_position(pos->id->str, pos->index, perms));
     }
@@ -525,7 +528,7 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
     for (size_t i = 0; i < sp->perm_overrides->len; i++)
     {
         struct Permission *perm = sp->perm_overrides->perms[i];
-        permission_list_add(permOverrides, new_permission(perm->namespace->str, perm->perm->str, perm->negator));
+        permission_list_add(permOverrides, new_permission(perm->namespace, perm->perm, perm->negator));
     }
 
     // Add the permission overrides as index 0
@@ -575,7 +578,7 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
             if (perm->negator)
             {
                 // Check what gave the permission. We *know* its sorted so we don't need to do anything but remove if it exists
-                struct Permission *nonNegated = new_permission(perm->namespace->str, perm->perm->str, false);
+                struct Permission *nonNegated = new_permission_cloned(perm->namespace, perm->perm, false);
                 struct Permission *pwc = __ordered_permission_map_get(opm, nonNegated);
                 if (pwc != NULL)
                 {
@@ -620,7 +623,7 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
                     }
                 }
                 // If its not a negator, first check if there's a negator
-                struct Permission *negated = new_permission(perm->namespace->str, perm->perm->str, true);
+                struct Permission *negated = new_permission_cloned(perm->namespace, perm->perm, true);
                 struct Permission *pwc = __ordered_permission_map_get(opm, negated);
                 if (pwc != NULL)
                 {
@@ -653,13 +656,14 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
     {
         struct Permission *perm = opm->order[i];
         // Copy the permission
-        struct Permission *new_perm = new_permission(perm->namespace->str, perm->perm->str, perm->negator);
+        struct Permission *new_perm = new_permission(perm->namespace, perm->perm, perm->negator);
         permission_list_add(appliedPerms, new_perm);
     }
 
 #ifdef DEBUG
     struct string *appliedPermsStr = permission_list_join(appliedPerms, ", ");
     printf("Applied perms: %s with hashmap: %p\n", appliedPermsStr->str, opm->map);
+    string_free(appliedPermsStr);
 #endif
 
     __ordered_permission_map_free(opm);
