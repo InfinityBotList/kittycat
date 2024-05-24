@@ -163,9 +163,9 @@ int has_perm__test()
     return 0;
 }
 
-bool sp_resolve_test_impl(struct StaffPermissions *sp, struct PermissionList *expected_perms)
+bool sp_resolve_test_impl(struct StaffPermissions *sp, struct PermissionList *expected_perms, struct __OrderedPermissionMap *opm)
 {
-    struct PermissionList *perms = staff_permissions_resolve(sp);
+    struct PermissionList *perms = __staff_permissions_resolve(sp, opm);
 
     struct kittycat_string *expected_perms_str = permission_list_join(expected_perms, ", ");
     struct kittycat_string *perms_str = permission_list_join(perms, ", ");
@@ -178,6 +178,7 @@ bool sp_resolve_test_impl(struct StaffPermissions *sp, struct PermissionList *ex
     string_free(expected_perms_str);
     string_free(perms_str);
     staff_permissions_free(sp);
+    __ordered_permission_map_clear(opm); // Clear the OPM for reuse
 
     return res;
 }
@@ -384,6 +385,7 @@ int sp_resolve__test()
     }
     */
 
+    struct __OrderedPermissionMap *opm = __new_ordered_permission_map();
     struct kittycat_string *rpcTest = new_string("rpc.test", 8);
     struct kittycat_string *rpcTest2 = new_string("rpc.test2", 9);
 
@@ -396,7 +398,7 @@ int sp_resolve__test()
     struct StaffPermissions *sp = new_staff_permissions();
     permission_list_add(sp->perm_overrides, permission_from_str(rpcTest));
 
-    if (!sp_resolve_test_impl(sp, expected))
+    if (!sp_resolve_test_impl(sp, expected, opm))
     {
         return 1;
     }
@@ -411,7 +413,7 @@ int sp_resolve__test()
     sp = new_staff_permissions();
     partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcTest)}, 1)));
 
-    if (!sp_resolve_test_impl(sp, expected))
+    if (!sp_resolve_test_impl(sp, expected, opm))
     {
         return 1;
     }
@@ -428,7 +430,7 @@ int sp_resolve__test()
     partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcTest)}, 1)));
     partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(rpcTest2)}, 1)));
 
-    if (!sp_resolve_test_impl(sp, expected))
+    if (!sp_resolve_test_impl(sp, expected, opm))
     {
         return 1;
     }
@@ -436,6 +438,7 @@ int sp_resolve__test()
     // Free memory
     string_free(rpcTest);
     string_free(rpcTest2);
+    __ordered_permission_map_free(opm);
 
     return 0;
 }

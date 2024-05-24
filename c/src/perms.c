@@ -410,6 +410,9 @@ void staff_permissions_free(struct StaffPermissions *sp)
     sp = NULL;
 }
 
+// A hashmap of permissions that are ordered
+//
+// Note that this struct is *unstable* and has ZERO API stability guarantees
 struct __OrderedPermissionMap
 {
     struct hashmap *map;
@@ -518,9 +521,14 @@ void __ordered_permission_map_clear(struct __OrderedPermissionMap *opm)
 }
 
 // Resolves the permissions of a staff member
-struct PermissionList *staff_permissions_resolve(const struct StaffPermissions *const sp)
+//
+// Note: consumers must free the ordered permission map after use
+//
+// For a general purpose function, use `staff_permissions_resolve`
+//
+// Note: multi-threaded functions should also use `staff_permissions_resolve` which creates the (not-threadsafe) hashmap on each invocation
+struct PermissionList *__staff_permissions_resolve(const struct StaffPermissions *const sp, struct __OrderedPermissionMap *opm)
 {
-    struct __OrderedPermissionMap *opm = __new_ordered_permission_map();
     struct PartialStaffPositionList *userPositions = new_partial_staff_position_list();
 
     // Take copy of the user positions
@@ -682,7 +690,16 @@ struct PermissionList *staff_permissions_resolve(const struct StaffPermissions *
 
     partial_staff_position_list_free(userPositions);
 
-    __ordered_permission_map_free(opm);
+    return appliedPerms;
+}
 
+// Resolves the permissions of a staff member
+//
+// For increased efficiency at the cost of no API stability guarantees and loss of thread safety, use `__staff_permissions_resolve`
+struct PermissionList *staff_permissions_resolve(const struct StaffPermissions *const sp)
+{
+    struct __OrderedPermissionMap *opm = __new_ordered_permission_map();
+    struct PermissionList *appliedPerms = __staff_permissions_resolve(sp, opm);
+    __ordered_permission_map_free(opm);
     return appliedPerms;
 }
