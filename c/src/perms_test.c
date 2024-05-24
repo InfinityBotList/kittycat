@@ -404,13 +404,6 @@ int sp_resolve__test()
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
-        string_free(rpcTest);
-        string_free(rpcTest2);
-        string_free(rpcTest3);
-        string_free(NrpcTest);
-        string_free(NrpcTest2);
-        string_free(NrpcTest3);
-        __ordered_permission_map_free(opm);
         return 1;
     }
 
@@ -426,13 +419,6 @@ int sp_resolve__test()
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
-        string_free(rpcTest);
-        string_free(rpcTest2);
-        string_free(rpcTest3);
-        string_free(NrpcTest);
-        string_free(NrpcTest2);
-        string_free(NrpcTest3);
-        __ordered_permission_map_free(opm);
         return 1;
     }
 
@@ -450,14 +436,6 @@ int sp_resolve__test()
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
-        string_free(rpcTest);
-        string_free(rpcTest2);
-        string_free(rpcTest3);
-        string_free(NrpcTest);
-        string_free(NrpcTest2);
-        string_free(NrpcTest3);
-        __ordered_permission_map_free(opm);
-
         return 1;
     }
 
@@ -476,13 +454,43 @@ int sp_resolve__test()
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
-        string_free(rpcTest);
-        string_free(rpcTest2);
-        string_free(rpcTest3);
-        string_free(NrpcTest);
-        string_free(NrpcTest2);
-        string_free(NrpcTest3);
-        __ordered_permission_map_free(opm);
+        return 1;
+    }
+
+    // Same as above but testing negator ordering
+    expected = new_permission_list_with_perms(
+        (struct Permission *[]){
+            permission_from_str(NrpcTest3),
+            permission_from_str(NrpcTest),
+            permission_from_str(rpcTest2),
+        },
+        3);
+
+    sp = new_staff_permissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest), permission_from_str(rpcTest2)}, 2)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest3), permission_from_str(rpcTest)}, 2)));
+
+    if (!sp_resolve_test_impl(sp, expected, opm))
+    {
+        return 1;
+    }
+
+    // Now mix everything together
+    expected = new_permission_list_with_perms(
+        (struct Permission *[]){
+            permission_from_str(rpcTest2),
+            permission_from_str(rpcTest3),
+            permission_from_str(rpcTest),
+        },
+        3);
+
+    sp = new_staff_permissions();
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test", 1, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest), permission_from_str(rpcTest2), permission_from_str(rpcTest3)}, 3)));
+    partial_staff_position_list_add(sp->user_positions, new_partial_staff_position("test2", 2, new_permission_list_with_perms((struct Permission *[]){permission_from_str(NrpcTest3), permission_from_str(NrpcTest2)}, 2)));
+    permission_list_add(sp->perm_overrides, permission_from_str(rpcTest));
+
+    if (!sp_resolve_test_impl(sp, expected, opm))
+    {
         return 1;
     }
 
