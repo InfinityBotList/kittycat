@@ -564,22 +564,14 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
                 else
                 {
                     // Clear all perms with this namespace
-                    struct PermissionList *toRemove = new_permission_list();
                     for (size_t k = 0; k < opm->len; k++)
                     {
                         struct Permission *key = opm->order[k];
                         if (string_is_equal(key->namespace, perm->namespace))
                         {
-                            permission_list_add(toRemove, key);
+                            __ordered_permission_map_del(opm, key);
                         }
                     }
-
-                    for (size_t k = 0; k < toRemove->len; k++)
-                    {
-                        struct Permission *key = toRemove->perms[k];
-                        __ordered_permission_map_del(opm, key);
-                    }
-                    permission_list_partial_free(toRemove);
                 }
             }
 
@@ -616,7 +608,6 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
                 if (string_is_equal_char(perm->perm, "*"))
                 {
                     // Remove negators. As the permissions are sorted, we can just check if a negator is in the hashmap
-                    struct PermissionList *toRemove = new_permission_list();
                     for (size_t k = 0; k < opm->len; k++)
                     {
                         struct Permission *key = opm->order[k];
@@ -627,16 +618,9 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
                         if (string_is_equal(key->namespace, perm->namespace))
                         {
                             // Then we can ignore this negator
-                            permission_list_add(toRemove, key);
+                            __ordered_permission_map_del(opm, key);
                         }
                     }
-
-                    for (size_t k = 0; k < toRemove->len; k++)
-                    {
-                        struct Permission *key = toRemove->perms[k];
-                        __ordered_permission_map_del(opm, key);
-                    }
-                    permission_list_partial_free(toRemove);
                 }
                 // If its not a negator, first check if there's a negator
                 struct Permission *negated = new_permission(perm->namespace->str, perm->perm->str, true);
@@ -680,21 +664,6 @@ struct PermissionList *staff_permissions_resolve(struct StaffPermissions *sp)
     struct string *appliedPermsStr = permission_list_join(appliedPerms, ", ");
     printf("Applied perms: %s with hashmap: %p\n", appliedPermsStr->str, opm->map);
 #endif
-
-    // Clear all perms with this namespace
-    struct PermissionList *toRemove = new_permission_list();
-    for (size_t k = 0; k < opm->len; k++)
-    {
-        struct Permission *key = opm->order[k];
-        permission_list_add(toRemove, key);
-    }
-
-    for (size_t k = 0; k < toRemove->len; k++)
-    {
-        struct Permission *key = toRemove->perms[k];
-        __ordered_permission_map_del(opm, key);
-    }
-    permission_list_partial_free(toRemove);
 
     __ordered_permission_map_free(opm);
     partial_staff_position_list_free(userPositions);
