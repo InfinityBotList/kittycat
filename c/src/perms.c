@@ -518,10 +518,9 @@ void __ordered_permission_map_clear(struct __OrderedPermissionMap *opm)
 }
 
 // Resolves the permissions of a staff member
-//
-// Note: consumers must free the ordered permission map after use
-struct PermissionList *staff_permissions_resolve(const struct StaffPermissions *const sp, struct __OrderedPermissionMap *opm)
+struct PermissionList *staff_permissions_resolve(const struct StaffPermissions *const sp)
 {
+    struct __OrderedPermissionMap *opm = __new_ordered_permission_map();
     struct PartialStaffPositionList *userPositions = new_partial_staff_position_list();
 
     // Take copy of the user positions
@@ -682,6 +681,8 @@ struct PermissionList *staff_permissions_resolve(const struct StaffPermissions *
 #endif
 
     partial_staff_position_list_free(userPositions);
+
+    __ordered_permission_map_free(opm);
 
     return appliedPerms;
 }
