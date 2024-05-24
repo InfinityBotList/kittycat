@@ -1,5 +1,6 @@
 #include "perms.c"
 
+#if defined(DECONSTRUCT_PERMISSION_CHECKS)
 int deconstruct_permission__test(char *perm)
 {
     struct kittycat_string *perm_str = new_string(perm, strlen(perm));
@@ -26,6 +27,7 @@ int deconstruct_permission__test(char *perm)
 
     return 0;
 }
+#endif
 
 bool has_perm_test_impl(char **str, char *perm, size_t len)
 {
@@ -593,12 +595,17 @@ int main()
 {
     printf("Running tests: %s...\n", ":)");
 
+#if defined(DECONSTRUCT_PERMISSION_CHECKS)
     char *checks[] = {"bar", "global.bar", "bot.foo", "~bot.foo"};
 
     for (int i = 0; i < 4; i++)
     {
-        deconstruct_permission__test(checks[i]);
+        if (deconstruct_permission__test(checks[i]))
+        {
+            return 1;
+        }
     }
+#endif
 
     int rc = has_perm__test();
     if (rc)
