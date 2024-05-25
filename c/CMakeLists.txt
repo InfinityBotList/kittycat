@@ -2,8 +2,10 @@ cmake_minimum_required(VERSION 3.5)
 project(kittycat VERSION 0.1.0 DESCRIPTION "Kittycat permission handling" LANGUAGES C)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -Wno-unused-parameter -O3") # No ASAN
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra -Werror -Wno-unused-parameter -O3 -g") # No ASAN+DEBUG
 set(CMAKE_C_FLAGS_ASAN "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra -Werror -Wno-unused-parameter -O3 -fsanitize=address -fsanitize=undefined -g") # ASAN
 set(CMAKE_C_FLAGS_C99 "${CMAKE_C_FLAGS_C99} -Wall -Wextra -Werror -Wno-unused-parameter -O3 -DC99 -std=c99") # No ASAN+C99
+set(CMAKE_C_FLAGS_C99_DEBUG "${CMAKE_C_FLAGS_C99_DEBUG} -Wall -Wextra -Werror -Wno-unused-parameter -O3 -DC99 -std=c99 -g") # No ASAN+C99+DEBUG
 set(CMAKE_C_FLAGS_C99_ASAN "${CMAKE_C_FLAGS_C99_DEBUG} -Wall -Wextra -Werror -Wno-unused-parameter -O3 -DC99 -std=c99 -fsanitize=address -fsanitize=undefined -g") # ASAN+C99
 
 # Actual library
