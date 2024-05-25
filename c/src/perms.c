@@ -1,18 +1,14 @@
-#include "kc_string.c"
-#include "hashmap/hashmap.h"
-struct KittycatPermission
-{
-    struct kittycat_string *namespace;
-    struct kittycat_string *perm;
-    bool negator;
+#include "prelude.h"
+#include "perms.h"
+#include "hashmap.h"
 
-    // Internal
-    bool __isCloned;
-};
+const struct kittycat_string __kittycat_perm_global_ns = {"global", 6, false};
+const struct kittycat_string __kittycat_perm_clear_perm = {"@clear", 6, false};
+const struct kittycat_string __kittycat_perm_global_perm = {"*", 1, false};
 
 struct KittycatPermission *kittycat_new_permission(struct kittycat_string *namespace, struct kittycat_string *perm, bool negator)
 {
-    struct KittycatPermission *p = malloc(sizeof(struct KittycatPermission));
+    struct KittycatPermission *p = __kittycat_malloc(sizeof(struct KittycatPermission));
     p->namespace = namespace;
     p->perm = perm;
     p->negator = negator;
@@ -20,24 +16,16 @@ struct KittycatPermission *kittycat_new_permission(struct kittycat_string *names
     return p;
 }
 
-// Creates a new KittycatPermission from a string.
-// The string must be in the format `namespace.perm`
-// Caller must free the KittycatPermission after use using `kittycat_permission_free`
-// Note that the original namespace+perm will be cloned and automatically freed when the KittycatPermission is freed using `kittycat_permission_free`
 struct KittycatPermission *kittycat_new_permission_cloned(struct kittycat_string *namespace, struct kittycat_string *perm, bool negator)
 {
-    struct KittycatPermission *p = malloc(sizeof(struct KittycatPermission));
-    p->namespace = string_clone(namespace);
-    p->perm = string_clone(perm);
+    struct KittycatPermission *p = __kittycat_malloc(sizeof(struct KittycatPermission));
+    p->namespace = kittycat_string_clone(namespace);
+    p->perm = kittycat_string_clone(perm);
     p->negator = negator;
     p->__isCloned = true;
     return p;
 }
 
-// Creates a new KittycatPermission from a string
-//
-// Note 1: Caller must free the KittycatPermission after use using `kittycat_permission_free`
-// Note 2: The string must be in the format `namespace.perm`
 struct KittycatPermission *kittycat_permission_new_from_str(struct kittycat_string *str)
 {
     if (str->len == 0)
@@ -46,7 +34,12 @@ struct KittycatPermission *kittycat_permission_new_from_str(struct kittycat_stri
     }
 
     struct kittycat_string *str_split[2];
-    string_splitn(str, '.', str_split, 2);
+    int split = kittycat_string_splitn(str, '.', str_split, 2);
+
+    if (split == 0)
+    {
+        return NULL;
+    }
 
     // If first character is ~, then it is a negator
     bool negator = str_split[0]->str[0] == '~';
@@ -54,17 +47,16 @@ struct KittycatPermission *kittycat_permission_new_from_str(struct kittycat_stri
     // If negator, remove the ~
     if (negator)
     {
-        struct kittycat_string *new_perm = string_trim_prefix(str_split[0], '~');
-        string_free(str_split[0]);
+        struct kittycat_string *new_perm = kittycat_string_trim_prefix(str_split[0], '~');
+        kittycat_string_free(str_split[0]);
         str_split[0] = new_perm;
     }
 
     // If perm is empty, then namespace is global and perm is first part
     struct KittycatPermission *p;
-    if (string_is_empty(str_split[1]))
+    if (split < 2)
     {
-        string_free(str_split[1]);
-        p = kittycat_new_permission(new_string("global", strlen("global")), str_split[0], negator);
+        p = kittycat_new_permission(kittycat_string_new("global", strlen("global")), str_split[0], negator);
         p->__isCloned = true; // substr clones the string, so flag it as cloned
     }
     else
@@ -83,12 +75,12 @@ char *kittycat_permission_to_str(struct KittycatPermission *p)
 
     if (p->negator)
     {
-        finalPerm = malloc(p->namespace->len + p->perm->len + 3);
+        finalPerm = __kittycat_malloc(p->namespace->len + p->perm->len + 3);
         snprintf(finalPerm, p->namespace->len + p->perm->len + 3, "~%s.%s", p->namespace->str, p->perm->str);
     }
     else
     {
-        finalPerm = malloc(p->namespace->len + p->perm->len + 2);
+        finalPerm = __kittycat_malloc(p->namespace->len + p->perm->len + 2);
         snprintf(finalPerm, p->namespace->len + p->perm->len + 2, "%s.%s", p->namespace->str, p->perm->str);
     }
 
@@ -97,36 +89,26 @@ char *kittycat_permission_to_str(struct KittycatPermission *p)
 
 void kittycat_permission_free(struct KittycatPermission *p)
 {
-#if defined(DEBUG_FULL) || defined(DEBUG_FREE)
-    printf("Freeing KittycatPermission with ns %s and perm %s at ptr %p\n", p->namespace->str, p->perm->str, p);
-#endif
-
     // Only call string_free if kittycat_new_permission_cloned was used
     if (p->__isCloned)
     {
-        string_free(p->namespace);
-        string_free(p->perm);
+        kittycat_string_free(p->namespace);
+        kittycat_string_free(p->perm);
     }
-    free(p);
+    __kittycat_free(p);
 }
-
-struct KittycatPermissionList
-{
-    struct KittycatPermission **perms;
-    size_t len;
-};
 
 struct KittycatPermissionList *kittycat_permission_list_new()
 {
-    struct KittycatPermissionList *pl = malloc(sizeof(struct KittycatPermissionList));
-    pl->perms = malloc(sizeof(struct KittycatPermission *));
+    struct KittycatPermissionList *pl = __kittycat_malloc(sizeof(struct KittycatPermissionList));
+    pl->perms = __kittycat_malloc(sizeof(struct KittycatPermission *));
     pl->len = 0;
     return pl;
 }
 
 void kittycat_permission_list_add(struct KittycatPermissionList *pl, struct KittycatPermission *const perm)
 {
-    pl->perms = realloc(pl->perms, (pl->len + 1) * sizeof(struct KittycatPermission *));
+    pl->perms = __kittycat_realloc(pl->perms, (pl->len + 1) * sizeof(struct KittycatPermission *));
     pl->perms[pl->len] = perm;
     pl->len++;
 }
@@ -146,14 +128,14 @@ void kittycat_permission_list_rm(struct KittycatPermissionList *pl, size_t i)
     }
 
     pl->len--;
-    pl->perms = realloc(pl->perms, pl->len * sizeof(struct KittycatPermission *));
+    pl->perms = __kittycat_realloc(pl->perms, pl->len * sizeof(struct KittycatPermission *));
 }
 
 struct KittycatPermissionList *kittycat_permission_list_new_with_perms(
     struct KittycatPermission **perms, size_t len)
 {
-    struct KittycatPermissionList *pl = malloc(sizeof(struct KittycatPermissionList));
-    pl->perms = malloc(len * sizeof(struct KittycatPermission *));
+    struct KittycatPermissionList *pl = __kittycat_malloc(sizeof(struct KittycatPermissionList));
+    pl->perms = __kittycat_malloc(len * sizeof(struct KittycatPermission *));
     pl->len = len;
     for (size_t i = 0; i < len; i++)
     {
@@ -162,36 +144,32 @@ struct KittycatPermissionList *kittycat_permission_list_new_with_perms(
     return pl;
 }
 
-// Joins a KittycatPermission list to produce a string
-//
-// The canonical string representation is used for each individual input KittycatPermission
-// The returned string must be freed by the caller
 struct kittycat_string *kittycat_permission_list_join(struct KittycatPermissionList *pl, char *sep)
 {
-    struct kittycat_string *joined = new_string("", 0);
+    struct kittycat_string *joined = kittycat_string_new("", 0);
 
     for (size_t i = 0; i < pl->len; i++)
     {
         char *perm_chararr = kittycat_permission_to_str(pl->perms[i]);
-        struct kittycat_string *perm_str = new_string(perm_chararr, strlen(perm_chararr));
-        struct kittycat_string *new_joined = string_concat(joined, perm_str);
-        free(perm_chararr); // SAFETY: string_concat creates a copy of the string
+        struct kittycat_string *perm_str = kittycat_string_new(perm_chararr, strlen(perm_chararr));
+        struct kittycat_string *new_joined = kittycat_string_concat(joined, perm_str);
+        __kittycat_free(perm_chararr); // SAFETY: string_concat creates a copy of the string
         if (i != pl->len - 1)
         {
-            struct kittycat_string *sep_str = new_string(sep, strlen(sep));
-            struct kittycat_string *new_joined_sep = string_concat(new_joined, sep_str);
-            string_free(sep_str);
-            string_free(joined);
-            string_free(new_joined);
+            struct kittycat_string *sep_str = kittycat_string_new(sep, strlen(sep));
+            struct kittycat_string *new_joined_sep = kittycat_string_concat(new_joined, sep_str);
+            kittycat_string_free(sep_str);
+            kittycat_string_free(joined);
+            kittycat_string_free(new_joined);
             joined = new_joined_sep;
         }
         else
         {
-            string_free(joined);
+            kittycat_string_free(joined);
             joined = new_joined;
         }
 
-        string_free(perm_str);
+        kittycat_string_free(perm_str);
     }
 
     return joined;
@@ -209,7 +187,7 @@ bool kittycat_permission_lists_equal(struct KittycatPermissionList *pl1, struct 
         struct KittycatPermission *p1 = pl1->perms[i];
         struct KittycatPermission *p2 = pl2->perms[i];
 
-        if (!string_is_equal(p1->namespace, p2->namespace) || !string_is_equal(p1->perm, p2->perm) || p1->negator != p2->negator)
+        if (!kittycat_string_equal(p1->namespace, p2->namespace) || !kittycat_string_equal(p1->perm, p2->perm) || p1->negator != p2->negator)
         {
             return false;
         }
@@ -233,11 +211,11 @@ void kittycat_permission_list_free(struct KittycatPermissionList *pl)
             pl->perms[i] = NULL;
         }
 
-        free(pl->perms);
+        __kittycat_free(pl->perms);
         pl->perms = NULL;
     }
 
-    free(pl);
+    __kittycat_free(pl);
     pl = NULL;
 }
 
@@ -256,17 +234,17 @@ bool kittycat_has_perm(const struct KittycatPermissionList *const perms, const s
 #endif
 
         // Special case of global.*
-        if (!user_perm->negator && string_is_equal_char(user_perm->namespace, "global") && string_is_equal_char(user_perm->perm, "*"))
+        if (!user_perm->negator && kittycat_string_equal(user_perm->namespace, &__kittycat_perm_global_ns) && kittycat_string_equal(user_perm->perm, &__kittycat_perm_global_perm))
         {
             return true;
         }
 
 #if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
-        printf("NS = NS: %s, Perm = Perm: %s\n", string_is_equal(user_perm->namespace, perm->namespace) ? "true" : "false", string_is_equal(user_perm->perm, perm->perm) ? "true" : "false");
+        printf("NS = NS: %s, Perm = Perm: %s\n", kittycat_string_equal(user_perm->namespace, perm->namespace) ? "true" : "false", kittycat_string_equal(user_perm->perm, perm->perm) ? "true" : "false");
 #endif
 
-        if ((string_is_equal(user_perm->namespace, perm->namespace) || string_is_equal_char(user_perm->namespace, "global")) &&
-            (string_is_equal_char(user_perm->perm, "*") || string_is_equal(user_perm->perm, perm->perm)))
+        if ((kittycat_string_equal(user_perm->namespace, perm->namespace) || kittycat_string_equal(user_perm->namespace, &__kittycat_perm_global_ns)) &&
+            (kittycat_string_equal(user_perm->perm, &__kittycat_perm_global_perm) || kittycat_string_equal(user_perm->perm, perm->perm)))
         {
             // We have to check for negator
             has_perm = true;
@@ -283,67 +261,51 @@ bool kittycat_has_perm(const struct KittycatPermissionList *const perms, const s
 
 /* KittycatPermission resolution */
 
-struct PartialStaffPosition
+struct KittycatPartialStaffPosition *kittycat_partial_staff_position_new(char *id, int32_t index, struct KittycatPermissionList *perms)
 {
-    // The id of the position
-    struct kittycat_string *id;
-    // The index of the KittycatPermission. Lower means higher in the list of hierarchy
-    int32_t index;
-    // The preset KittycatPermissions of this position
-    struct KittycatPermissionList *perms;
-};
-
-struct PartialStaffPositionList
-{
-    struct PartialStaffPosition **positions;
-    size_t len;
-};
-
-struct PartialStaffPosition *partial_staff_position_new(char *id, int32_t index, struct KittycatPermissionList *perms)
-{
-    struct PartialStaffPosition *p = malloc(sizeof(struct PartialStaffPosition));
-    p->id = new_string(id, strlen(id));
+    struct KittycatPartialStaffPosition *p = __kittycat_malloc(sizeof(struct KittycatPartialStaffPosition));
+    p->id = kittycat_string_new(id, strlen(id));
     p->index = index;
     p->perms = perms;
     return p;
 }
 
-void partial_staff_position_free(struct PartialStaffPosition *p)
+void kittycat_partial_staff_position_free(struct KittycatPartialStaffPosition *p)
 {
     // Already freed if NULL
     if (p == NULL)
     {
         return;
     }
-    string_free(p->id);
+    kittycat_string_free(p->id);
     kittycat_permission_list_free(p->perms);
-    free(p);
+    __kittycat_free(p);
     p = NULL;
 }
 
-struct PartialStaffPositionList *partial_staff_position_list_new()
+struct KittycatPartialStaffPositionList *kittycat_partial_staff_position_list_new()
 {
-    struct PartialStaffPositionList *pl = malloc(sizeof(struct PartialStaffPositionList));
-    pl->positions = malloc(sizeof(struct PartialStaffPosition *));
+    struct KittycatPartialStaffPositionList *pl = __kittycat_malloc(sizeof(struct KittycatPartialStaffPositionList));
+    pl->positions = __kittycat_malloc(sizeof(struct KittycatPartialStaffPosition *));
     pl->len = 0;
     return pl;
 }
 
-void partial_staff_position_list_add(struct PartialStaffPositionList *pl, struct PartialStaffPosition *p)
+void kittycat_partial_staff_position_list_add(struct KittycatPartialStaffPositionList *pl, struct KittycatPartialStaffPosition *p)
 {
-    pl->positions = realloc(pl->positions, (pl->len + 1) * sizeof(struct PartialStaffPosition *));
+    pl->positions = __kittycat_realloc(pl->positions, (pl->len + 1) * sizeof(struct KittycatPartialStaffPosition *));
     pl->positions[pl->len] = p;
     pl->len++;
 }
 
-void partial_staff_position_list_rm(struct PartialStaffPositionList *pl, size_t i)
+void kittycat_partial_staff_position_list_rm(struct KittycatPartialStaffPositionList *pl, size_t i)
 {
     if (i >= pl->len)
     {
         return;
     }
 
-    partial_staff_position_free(pl->positions[i]);
+    kittycat_partial_staff_position_free(pl->positions[i]);
 
     for (size_t j = i; j < pl->len - 1; j++)
     {
@@ -351,10 +313,10 @@ void partial_staff_position_list_rm(struct PartialStaffPositionList *pl, size_t 
     }
 
     pl->len--;
-    pl->positions = realloc(pl->positions, pl->len * sizeof(struct PartialStaffPosition *));
+    pl->positions = __kittycat_realloc(pl->positions, pl->len * sizeof(struct KittycatPartialStaffPosition *));
 }
 
-void partial_staff_position_list_free(struct PartialStaffPositionList *pl)
+void kittycat_partial_staff_position_list_free(struct KittycatPartialStaffPositionList *pl)
 {
     if (pl == NULL)
     {
@@ -362,28 +324,19 @@ void partial_staff_position_list_free(struct PartialStaffPositionList *pl)
     }
     for (size_t i = 0; i < pl->len; i++)
     {
-        partial_staff_position_free(pl->positions[i]);
+        kittycat_partial_staff_position_free(pl->positions[i]);
         pl->positions[i] = NULL;
     }
-    free(pl->positions);
+    __kittycat_free(pl->positions);
     pl->positions = NULL;
-    free(pl);
+    __kittycat_free(pl);
     pl = NULL;
 }
 
-// A set of KittycatPermissions for a staff member
-//
-// This is a list of KittycatPermissions that the user has
-struct StaffKittycatPermissions
-{
-    struct PartialStaffPositionList *user_positions;
-    struct KittycatPermissionList *perm_overrides;
-};
-
 struct StaffKittycatPermissions *kittycat_staff_permissions_new()
 {
-    struct StaffKittycatPermissions *sp = malloc(sizeof(struct StaffKittycatPermissions));
-    sp->user_positions = partial_staff_position_list_new();
+    struct StaffKittycatPermissions *sp = __kittycat_malloc(sizeof(struct StaffKittycatPermissions));
+    sp->user_positions = kittycat_partial_staff_position_list_new();
     sp->perm_overrides = kittycat_permission_list_new();
     return sp;
 }
@@ -398,13 +351,13 @@ void kittycat_staff_permissions_free(struct StaffKittycatPermissions *sp)
 
     if (sp->user_positions != NULL)
     {
-        partial_staff_position_list_free(sp->user_positions);
+        kittycat_partial_staff_position_list_free(sp->user_positions);
     }
     if (sp->perm_overrides != NULL)
     {
         kittycat_permission_list_free(sp->perm_overrides);
     }
-    free(sp);
+    __kittycat_free(sp);
     sp = NULL;
 }
 
@@ -417,23 +370,23 @@ struct __KittycatToRemoveArr
 
 struct __KittycatToRemoveArr *__kittycat_toRemove_arr_new()
 {
-    struct __KittycatToRemoveArr *ia = malloc(sizeof(struct __KittycatToRemoveArr));
-    ia->arr = malloc(sizeof(int32_t));
+    struct __KittycatToRemoveArr *ia = __kittycat_malloc(sizeof(struct __KittycatToRemoveArr));
+    ia->arr = __kittycat_malloc(sizeof(int32_t));
     ia->len = 0;
     return ia;
 }
 
 void __kittycat_toRemove_arr_add(struct __KittycatToRemoveArr *ia, size_t i)
 {
-    ia->arr = realloc(ia->arr, (ia->len + 1) * sizeof(size_t));
+    ia->arr = __kittycat_realloc(ia->arr, (ia->len + 1) * sizeof(size_t));
     ia->arr[ia->len] = i;
     ia->len++;
 }
 
 void __kittycat_toRemove_arr_free(struct __KittycatToRemoveArr *ia)
 {
-    free(ia->arr);
-    free(ia);
+    __kittycat_free(ia->arr);
+    __kittycat_free(ia);
 }
 
 // A kittycat_hashmap of KittycatPermissions that are ordered
@@ -455,7 +408,7 @@ uint64_t __kittycat_permission_hash(const void *item, uint64_t seed0, uint64_t s
     printf("__KittycatPermissionwc_hash: Hashing KittycatPermission %s\n", perm_str);
 #endif
     uint64_t hash = kittycat_hashmap_sip(perm_str, strlen(perm_str), seed0, seed1);
-    free(perm_str);
+    __kittycat_free(perm_str);
     return hash;
 }
 
@@ -475,17 +428,17 @@ int __kittycat_permission_compare(const void *a, const void *b, void *udata)
     printf("__kittycat_ordered_permission_compare: Comparing %s and %s: %d\n", pa_str, pb_str, cmp);
 #endif
 
-    free(pa_str);
-    free(pb_str);
+    __kittycat_free(pa_str);
+    __kittycat_free(pb_str);
 
     return cmp;
 }
 
 struct __KittycatOrderedPermissionMap *__kittycat_ordered_permission_map_new()
 {
-    struct __KittycatOrderedPermissionMap *opm = malloc(sizeof(struct __KittycatOrderedPermissionMap));
+    struct __KittycatOrderedPermissionMap *opm = __kittycat_malloc(sizeof(struct __KittycatOrderedPermissionMap));
     opm->map = kittycat_hashmap_new(sizeof(struct KittycatPermission), 0, 0, 0, __kittycat_permission_hash, __kittycat_permission_compare, NULL, NULL);
-    opm->order = malloc(sizeof(struct KittycatPermission *));
+    opm->order = __kittycat_malloc(sizeof(struct KittycatPermission *));
     opm->len = 0;
     return opm;
 }
@@ -495,7 +448,7 @@ struct KittycatPermission *__kittycat_ordered_permission_map_get(struct __Kittyc
 #if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
     char *perm_str = kittycat_permission_to_str(perm);
     printf("__kittycat_ordered_permission_map_get: Getting KittycatPermission %s\n", perm_str);
-    free(perm_str);
+    __kittycat_free(perm_str);
 #endif
 
     const void *pwc_void = kittycat_hashmap_get(opm->map, perm);
@@ -513,19 +466,14 @@ struct KittycatPermission *__kittycat_ordered_permission_map_del(struct __Kittyc
 #if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
     char *perm_str = kittycat_permission_to_str(perm);
     printf("__kittycat_ordered_permission_map_del: Deleting KittycatPermission %s\n", perm_str);
-    free(perm_str);
+    __kittycat_free(perm_str);
 #endif
 
     const void *pwc_void = kittycat_hashmap_delete(opm->map, perm);
 
     if (pwc_void == NULL)
     {
-// Nothing was deleted
-#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
-        char *perm_str = kittycat_permission_to_str(perm);
-        printf(" __kittycat_ordered_permission_map_del: KittycatPermission %s not found in map\n", perm_str);
-        free(perm_str);
-#endif
+        // Nothing was deleted
         return NULL;
     }
 
@@ -564,8 +512,8 @@ void __kittycat_ordered_permission_map_free(struct __KittycatOrderedPermissionMa
     }
 
     kittycat_hashmap_free(opm->map);
-    free(opm->order);
-    free(opm);
+    __kittycat_free(opm->order);
+    __kittycat_free(opm);
     opm = NULL;
 }
 
@@ -577,7 +525,7 @@ void __kittycat_ordered_permission_map_printf_dbg(struct __KittycatOrderedPermis
         struct KittycatPermission *perm = opm->order[i];
         char *perm_str = kittycat_permission_to_str(perm);
         printf("order iter: %s\n", perm_str);
-        free(perm_str);
+        __kittycat_free(perm_str);
     }
 
     void *item;
@@ -587,7 +535,7 @@ void __kittycat_ordered_permission_map_printf_dbg(struct __KittycatOrderedPermis
         struct KittycatPermission *perm = item;
         char *perm_str = kittycat_permission_to_str(perm);
         printf("applied perm: %s\n", perm_str);
-        free(perm_str);
+        __kittycat_free(perm_str);
     }
 }
 #endif
@@ -597,18 +545,18 @@ void __kittycat_ordered_permission_map_set(struct __KittycatOrderedPermissionMap
 #if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
     char *perm_str = kittycat_permission_to_str(p);
     printf(" __kittycat_ordered_permission_map_set: Setting KittycatPermission %s\n", perm_str);
-    free(perm_str);
+    __kittycat_free(perm_str);
 #endif
 
     kittycat_hashmap_set(opm->map, p);
     opm->len = kittycat_hashmap_count(opm->map);
-    opm->order = realloc(opm->order, (opm->len * sizeof(struct KittycatPermission *)));
+    opm->order = __kittycat_realloc(opm->order, (opm->len * sizeof(struct KittycatPermission *)));
     opm->order[opm->len - 1] = p;
 
 #if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
     perm_str = kittycat_permission_to_str(p);
     printf(" __kittycat_ordered_permission_map_set: Successfully set KittycatPermission %s\n", perm_str);
-    free(perm_str);
+    __kittycat_free(perm_str);
 #endif
 
 #if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
@@ -620,8 +568,8 @@ void __kittycat_ordered_permission_map_clear(struct __KittycatOrderedPermissionM
 {
     kittycat_hashmap_clear(opm->map, false);
     opm->len = 0;
-    free(opm->order);
-    opm->order = malloc(sizeof(struct KittycatPermission *));
+    __kittycat_free(opm->order);
+    opm->order = __kittycat_malloc(sizeof(struct KittycatPermission *));
 }
 
 // Resolves the KittycatPermissions of a staff member
@@ -633,17 +581,17 @@ void __kittycat_ordered_permission_map_clear(struct __KittycatOrderedPermissionM
 // Note: multi-threaded functions should also use `kittycat_staff_permissions_resolve` which creates the (not-threadsafe) kittycat_hashmap on each invocation
 struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct StaffKittycatPermissions *const sp, struct __KittycatOrderedPermissionMap *opm)
 {
-    struct PartialStaffPositionList *userPositions = partial_staff_position_list_new();
+    struct KittycatPartialStaffPositionList *userPositions = kittycat_partial_staff_position_list_new();
 
     for (size_t i = 0; i < sp->user_positions->len; i++)
     {
-        struct PartialStaffPosition *pos = sp->user_positions->positions[i];
-        partial_staff_position_list_add(userPositions, pos);
+        struct KittycatPartialStaffPosition *pos = sp->user_positions->positions[i];
+        kittycat_partial_staff_position_list_add(userPositions, pos);
     }
 
     // Add the KittycatPermission overrides as index 0
-    struct PartialStaffPosition *permOverrides = partial_staff_position_new("perm_overrides", 0, sp->perm_overrides);
-    partial_staff_position_list_add(userPositions, permOverrides);
+    struct KittycatPartialStaffPosition *permOverrides = kittycat_partial_staff_position_new("perm_overrides", 0, sp->perm_overrides);
+    kittycat_partial_staff_position_list_add(userPositions, permOverrides);
 
     // Sort the positions by index in descending order
     for (size_t i = 0; i < userPositions->len; i++)
@@ -652,7 +600,7 @@ struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct
         {
             if (userPositions->positions[i]->index < userPositions->positions[j]->index)
             {
-                struct PartialStaffPosition *temp = userPositions->positions[i];
+                struct KittycatPartialStaffPosition *temp = userPositions->positions[i];
                 userPositions->positions[i] = userPositions->positions[j];
                 userPositions->positions[j] = temp;
             }
@@ -666,19 +614,19 @@ struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct
         struct PartialStaffPosition *pos = userPositions->positions[i];
         struct kittycat_string *permsStr = kittycat_permission_list_join(pos->perms, ", ");
         printf("Position %s with index %d has perms: %s\n", pos->id->str, pos->index, permsStr->str);
-        string_free(permsStr);
+        kittycat_string_free(permsStr);
     }
 #endif
 
     for (size_t i = 0; i < userPositions->len; i++)
     {
-        struct PartialStaffPosition *pos = userPositions->positions[i];
+        struct KittycatPartialStaffPosition *pos = userPositions->positions[i];
         for (size_t j = 0; j < pos->perms->len; j++)
         {
             struct KittycatPermission *perm = pos->perms->perms[j];
-            if (string_is_equal_char(perm->perm, "@clear"))
+            if (kittycat_string_equal(perm->perm, &__kittycat_perm_clear_perm))
             {
-                if (string_is_equal_char(perm->namespace, "global"))
+                if (kittycat_string_equal(perm->namespace, &__kittycat_perm_global_ns))
                 {
                     // Clear all KittycatPermissions
                     __kittycat_ordered_permission_map_clear(opm);
@@ -690,7 +638,7 @@ struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct
                     for (size_t k = 0; k < opm->len; k++)
                     {
                         struct KittycatPermission *key = opm->order[k];
-                        if (string_is_equal(key->namespace, perm->namespace))
+                        if (kittycat_string_equal(key->namespace, perm->namespace))
                         {
                             __kittycat_toRemove_arr_add(toRemove, k);
                         }
@@ -714,10 +662,6 @@ struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct
                 struct KittycatPermission *pwc = __kittycat_ordered_permission_map_get(opm, nonNegated);
                 if (pwc != NULL)
                 {
-#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
-                    printf("Non-negated exists for %s\n", kittycat_permission_to_str(nonNegated));
-#endif
-
                     // Remove old KittycatPermission
                     __kittycat_ordered_permission_map_del(opm, nonNegated);
 
@@ -729,18 +673,10 @@ struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct
                     struct KittycatPermission *pwc = __kittycat_ordered_permission_map_get(opm, perm);
                     if (pwc != NULL)
                     {
-#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
-                        printf("Non-negated exists for %s\n", kittycat_permission_to_str(perm));
-#endif
                         // Case 3: The negator is already applied, so we can ignore it
                         kittycat_permission_free(nonNegated);
                         continue;
                     }
-#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
-                    char *perm_str = kittycat_permission_to_str(perm);
-                    printf("Non-negated does not exist for %s\n", perm_str);
-                    free(perm_str);
-#endif
 
                     // Then we can freely add the negator
                     __kittycat_ordered_permission_map_set(opm, perm);
@@ -751,7 +687,7 @@ struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct
             else
             {
                 // Special case: If a * element exists for a smaller index, then the negator must be ignored. E.g. manager has ~rpc.PremiumAdd but head_manager has no such negator
-                if (string_is_equal_char(perm->perm, "*"))
+                if (kittycat_string_equal(perm->perm, &__kittycat_perm_global_perm))
                 {
                     // Remove negators. As the KittycatPermissions are sorted, we can just check if a negator is in the kittycat_hashmap
                     struct __KittycatToRemoveArr *toRemove = __kittycat_toRemove_arr_new();
@@ -762,7 +698,7 @@ struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct
                         {
                             continue; // This special case only applies to negators
                         }
-                        if (string_is_equal(key->namespace, perm->namespace))
+                        if (kittycat_string_equal(key->namespace, perm->namespace))
                         {
                             // Then we can ignore this negator
                             __kittycat_toRemove_arr_add(toRemove, k);
@@ -780,13 +716,6 @@ struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct
                 struct KittycatPermission *pwc = __kittycat_ordered_permission_map_get(opm, negated);
                 if (pwc != NULL)
                 {
-#if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
-                    char *perm_str = kittycat_permission_to_str(negated);
-                    char *negated_str = kittycat_permission_to_str(pwc);
-                    printf("Negator exists for %s as %s\n", perm_str, negated_str);
-                    free(perm_str);
-                    free(negated_str);
-#endif
                     // Remove old KittycatPermission
                     __kittycat_ordered_permission_map_del(opm, negated);
 
@@ -823,24 +752,21 @@ struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct
 #if defined(DEBUG_FULL) || defined(DEBUG_PRINTF_MINI)
         char *perm_str = kittycat_permission_to_str(perm);
         printf("order iter: %s\n", perm_str);
-        free(perm_str);
+        __kittycat_free(perm_str);
 #endif
         // Copy the KittycatPermission
         struct KittycatPermission *new_perm = kittycat_new_permission(perm->namespace, perm->perm, perm->negator);
         kittycat_permission_list_add(appliedPerms, new_perm);
     }
 
-    string_free(permOverrides->id);
-    free(permOverrides);
-    free(userPositions->positions);
-    free(userPositions);
+    kittycat_string_free(permOverrides->id);
+    __kittycat_free(permOverrides);
+    __kittycat_free(userPositions->positions);
+    __kittycat_free(userPositions);
 
     return appliedPerms;
 }
 
-// Resolves the KittycatPermissions of a staff member
-//
-// For increased efficiency at the cost of no API stability guarantees and loss of thread safety, use `__kittycat_staff_permissions_resolve`
 struct KittycatPermissionList *kittycat_staff_permissions_resolve(const struct StaffKittycatPermissions *const sp)
 {
     struct __KittycatOrderedPermissionMap *opm = __kittycat_ordered_permission_map_new();
@@ -849,52 +775,32 @@ struct KittycatPermissionList *kittycat_staff_permissions_resolve(const struct S
     return appliedPerms;
 }
 
-enum KittycatPermissionCheckPatchChangesResultState
-{
-    KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_OK,
-    KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_NO_PERMISSION,
-    KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_LACKS_NEGATOR_FOR_WILDCARD,
-};
-
-// Returned on calling `kittycat_permission_check_patch_changes`
-//
-// Users should check if state is `KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_OK`
-struct KittycatPermissionCheckPatchChangesResult
-{
-    enum KittycatPermissionCheckPatchChangesResultState state;
-    struct KittycatPermissionList *failing_perms;
-};
-
-// Frees the KittycatPermissionCheckPatchChangesResult
 void kittycat_permission_check_patch_changes_result_free(struct KittycatPermissionCheckPatchChangesResult *result)
 {
     if (result->failing_perms != NULL)
     {
         kittycat_permission_list_free(result->failing_perms);
     }
-    free(result);
+    __kittycat_free(result);
 }
 
-// Converts a KittycatPermissionCheckPatchChangesResult to a string
-// KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_NO_PERMISSION => You do not have permission to add this permission: {perm[0]}
-// KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_LACKS_NEGATOR_FOR_WILDCARD => You do not have permission to add wildcard permission {perm[0]} with negators due to lack of negator {perm[1]}"
-char *kittycat_permission_check_patch_changes_result_to_str(struct KittycatPermissionCheckPatchChangesResult *result)
+struct kittycat_string *kittycat_permission_check_patch_changes_result_to_str(struct KittycatPermissionCheckPatchChangesResult *result)
 {
     if (result->state == KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_NO_PERMISSION)
     {
         char *perm_str = kittycat_permission_to_str(result->failing_perms->perms[0]);
 
         size_t error_msg_len = strlen("You do not have permission to add this permission: ") + strlen(perm_str) + 1;
-        char *error_msg = malloc(error_msg_len);
+        char *error_msg = __kittycat_malloc(error_msg_len);
         snprintf(
             error_msg,
             error_msg_len,
             "You do not have permission to add this permission: %s",
             perm_str);
 
-        free(perm_str);
+        __kittycat_free(perm_str);
 
-        return error_msg;
+        return kittycat_string_new(error_msg, error_msg_len);
     }
     else if (result->state == KITTYCAT_PERMISSION_CHECK_PATCH_CHANGES_RESULT_STATE_LACKS_NEGATOR_FOR_WILDCARD)
     {
@@ -902,7 +808,7 @@ char *kittycat_permission_check_patch_changes_result_to_str(struct KittycatPermi
         char *negator_str = kittycat_permission_to_str(result->failing_perms->perms[1]);
 
         size_t error_msg_len = strlen("You do not have permission to add wildcard permission ") + strlen(perm_str) + strlen(" with negators due to lack of negator ") + strlen(negator_str) + 1;
-        char *error_msg = malloc(error_msg_len);
+        char *error_msg = __kittycat_malloc(error_msg_len);
         snprintf(
             error_msg,
             error_msg_len,
@@ -910,18 +816,17 @@ char *kittycat_permission_check_patch_changes_result_to_str(struct KittycatPermi
             perm_str,
             negator_str);
 
-        free(perm_str);
-        free(negator_str);
+        __kittycat_free(perm_str);
+        __kittycat_free(negator_str);
 
-        return error_msg;
+        return kittycat_string_new(error_msg, error_msg_len);
     }
     else
     {
-        return "";
+        return NULL;
     }
 }
 
-// Checks whether or not a resolved set of KittycatPermissions allows the addition or removal of a KittycatPermission to a position
 struct KittycatPermissionCheckPatchChangesResult kittycat_check_patch_changes(
     struct KittycatPermissionList *manager_perms,
     struct KittycatPermissionList *current_perms,
@@ -1009,7 +914,7 @@ struct KittycatPermissionCheckPatchChangesResult kittycat_check_patch_changes(
             };
         }
 
-        if (string_is_equal_char(perm->perm, "*"))
+        if (kittycat_string_equal(perm->perm, &__kittycat_perm_global_perm))
         {
             // Ensure that new_perms has *at least* negators that manager_perms has within the namespace
             for (size_t j = 0; j < manager_perms->len; j++)
@@ -1020,14 +925,14 @@ struct KittycatPermissionCheckPatchChangesResult kittycat_check_patch_changes(
                     continue;
                 }
 
-                if (string_is_equal(perms->namespace, perm->namespace))
+                if (kittycat_string_equal(perms->namespace, perm->namespace))
                 {
                     // Then we have a negator in the same namespace
                     bool in_new_perms = false;
                     for (size_t k = 0; k < new_perms->len; k++)
                     {
                         struct KittycatPermission *new_perm = new_perms->perms[k];
-                        if (string_is_equal(new_perm->namespace, perm->namespace) && string_is_equal(new_perm->perm, perm->perm) && new_perm->negator == perm->negator)
+                        if (kittycat_string_equal(new_perm->namespace, perm->namespace) && kittycat_string_equal(new_perm->perm, perm->perm) && new_perm->negator == perm->negator)
                         {
                             in_new_perms = true;
                             break;

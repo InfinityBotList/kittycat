@@ -9,12 +9,12 @@
 #if defined(DECONSTRUCT_kittycat_permission_CHECKS)
 int deconstruct_kittycat_permission__test(char *perm)
 {
-    struct kittycat_string *perm_str = new_string(perm, strlen(perm));
+    struct kittycat_string *perm_str = kittycat_string_new(perm, strlen(perm));
     struct KittycatPermission *p = kittycat_permission_new_from_str(perm_str);
 
     if (p == NULL)
     {
-        string_free(perm_str);
+        kittycat_string_free(perm_str);
         printf("ERROR: KittycatPermission is NULL\n");
         return 1;
     }
@@ -29,7 +29,7 @@ int deconstruct_kittycat_permission__test(char *perm)
     }
 
     kittycat_permission_free(p);
-    string_free(perm_str);
+    kittycat_string_free(perm_str);
 
     return 0;
 }
@@ -41,23 +41,23 @@ bool has_perm_test_impl(char **str, char *perm, size_t len)
 
     for (size_t i = 0; i < len; i++)
     {
-        struct kittycat_string *perm_str = new_string(str[i], strlen(str[i]));
+        struct kittycat_string *perm_str = kittycat_string_new(str[i], strlen(str[i]));
         struct KittycatPermission *p = kittycat_permission_new_from_str(perm_str);
-        string_free(perm_str);
+        kittycat_string_free(perm_str);
 
         kittycat_permission_list_add(perms, p);
     }
 
-    struct kittycat_string *perm_str = new_string(perm, strlen(perm));
+    struct kittycat_string *perm_str = kittycat_string_new(perm, strlen(perm));
     struct KittycatPermission *p = kittycat_permission_new_from_str(perm_str);
     struct kittycat_string *permlist_joined = kittycat_permission_list_join(perms, ", ");
 
-    printf("Checking KittycatPermission: %s against [%s] (len=%zu)\n", perm_str->str, permlist_joined->str, perms->len);
+    printf("Checking permission: %s against [%s] (len=%zu)\n", perm_str->str, permlist_joined->str, perms->len);
 
     bool res = kittycat_has_perm(perms, p);
 
-    string_free(permlist_joined);
-    string_free(perm_str);
+    kittycat_string_free(permlist_joined);
+    kittycat_string_free(perm_str);
     kittycat_permission_free(p);
     kittycat_permission_list_free(perms);
 
@@ -183,8 +183,8 @@ bool sp_resolve_test_impl(struct StaffKittycatPermissions *sp, struct KittycatPe
 
     kittycat_permission_list_free(perms);
     kittycat_permission_list_free(expected_perms);
-    string_free(expected_perms_str);
-    string_free(perms_str);
+    kittycat_string_free(expected_perms_str);
+    kittycat_string_free(perms_str);
     kittycat_staff_permissions_free(sp);
     __kittycat_ordered_permission_map_clear(opm); // Clear the OPM for reuse
 
@@ -194,17 +194,17 @@ bool sp_resolve_test_impl(struct StaffKittycatPermissions *sp, struct KittycatPe
 int sp_resolve__test()
 {
     struct __KittycatOrderedPermissionMap *opm = __kittycat_ordered_permission_map_new();
-    struct kittycat_string *rpcTest = new_string("rpc.test", 8);
-    struct kittycat_string *rpcTest2 = new_string("rpc.test2", 9);
-    struct kittycat_string *rpcTest3 = new_string("rpc.test3", 9);
-    struct kittycat_string *rpcClaim = new_string("rpc.Claim", 9);
-    struct kittycat_string *rpcStar = new_string("rpc.*", 5);
-    struct kittycat_string *NrpcTest = new_string("~rpc.test", 9);
-    struct kittycat_string *NrpcTest2 = new_string("~rpc.test2", 10);
-    struct kittycat_string *NrpcTest3 = new_string("~rpc.test3", 10);
-    struct kittycat_string *NrpcClaim = new_string("~rpc.Claim", 10);
-    struct kittycat_string *NrpcStar = new_string("~rpc.*", 6);
-    struct kittycat_string *global_clear = new_string("global.@clear", 13);
+    struct kittycat_string *rpcTest = kittycat_string_new("rpc.test", 8);
+    struct kittycat_string *rpcTest2 = kittycat_string_new("rpc.test2", 9);
+    struct kittycat_string *rpcTest3 = kittycat_string_new("rpc.test3", 9);
+    struct kittycat_string *rpcClaim = kittycat_string_new("rpc.Claim", 9);
+    struct kittycat_string *rpcStar = kittycat_string_new("rpc.*", 5);
+    struct kittycat_string *NrpcTest = kittycat_string_new("~rpc.test", 9);
+    struct kittycat_string *NrpcTest2 = kittycat_string_new("~rpc.test2", 10);
+    struct kittycat_string *NrpcTest3 = kittycat_string_new("~rpc.test3", 10);
+    struct kittycat_string *NrpcClaim = kittycat_string_new("~rpc.Claim", 10);
+    struct kittycat_string *NrpcStar = kittycat_string_new("~rpc.*", 6);
+    struct kittycat_string *global_clear = kittycat_string_new("global.@clear", 13);
 
     // Test for basic resolution of overrides
     struct KittycatPermissionList *expected = kittycat_permission_list_new_with_perms(
@@ -228,7 +228,7 @@ int sp_resolve__test()
         1);
 
     sp = kittycat_staff_permissions_new();
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest)}, 1)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest)}, 1)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -244,8 +244,8 @@ int sp_resolve__test()
         2);
 
     sp = kittycat_staff_permissions_new();
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest)}, 1)));
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest2)}, 1)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest)}, 1)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest2)}, 1)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -262,8 +262,8 @@ int sp_resolve__test()
         3);
 
     sp = kittycat_staff_permissions_new();
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest), kittycat_permission_new_from_str(rpcTest2)}, 2)));
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(NrpcTest3)}, 2)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest), kittycat_permission_new_from_str(rpcTest2)}, 2)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(NrpcTest3)}, 2)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -280,8 +280,8 @@ int sp_resolve__test()
         3);
 
     sp = kittycat_staff_permissions_new();
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(rpcTest2)}, 2)));
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(rpcTest)}, 2)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(rpcTest2)}, 2)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(rpcTest)}, 2)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -298,8 +298,8 @@ int sp_resolve__test()
         3);
 
     sp = kittycat_staff_permissions_new();
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(rpcTest2), kittycat_permission_new_from_str(rpcTest3)}, 3)));
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(NrpcTest2)}, 2)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(rpcTest2), kittycat_permission_new_from_str(rpcTest3)}, 3)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(NrpcTest2)}, 2)));
     kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_new_from_str(rpcTest));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
@@ -317,9 +317,9 @@ int sp_resolve__test()
         3);
 
     sp = kittycat_staff_permissions_new();
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(rpcTest2)}, 2)));
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(global_clear), kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(rpcTest2)}, 3)));
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(NrpcTest2)}, 2)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(rpcTest2)}, 2)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(global_clear), kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(rpcTest2)}, 3)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(NrpcTest2)}, 2)));
     kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_new_from_str(NrpcTest));
     kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_new_from_str(rpcTest2));
     kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_new_from_str(rpcTest3));
@@ -337,8 +337,8 @@ int sp_resolve__test()
         1);
 
     sp = kittycat_staff_permissions_new();
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcStar)}, 1)));
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(NrpcTest2)}, 2)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcStar)}, 1)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(NrpcTest2)}, 2)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -355,8 +355,8 @@ int sp_resolve__test()
         3);
 
     sp = kittycat_staff_permissions_new();
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test2", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(NrpcTest2)}, 2)));
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("test", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcStar)}, 1)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(NrpcTest2)}, 2)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcStar)}, 1)));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
     {
@@ -372,7 +372,7 @@ int sp_resolve__test()
         1);
 
     sp = kittycat_staff_permissions_new();
-    partial_staff_position_list_add(sp->user_positions, partial_staff_position_new("reviewer", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcClaim)}, 1)));
+    kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("reviewer", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcClaim)}, 1)));
     kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_new_from_str(NrpcClaim));
 
     if (!sp_resolve_test_impl(sp, expected, opm))
@@ -381,17 +381,17 @@ int sp_resolve__test()
     }
 
     // Free memory
-    string_free(rpcTest);
-    string_free(rpcTest2);
-    string_free(rpcTest3);
-    string_free(rpcClaim);
-    string_free(rpcStar);
-    string_free(NrpcTest);
-    string_free(NrpcTest2);
-    string_free(NrpcTest3);
-    string_free(NrpcClaim);
-    string_free(NrpcStar);
-    string_free(global_clear);
+    kittycat_string_free(rpcTest);
+    kittycat_string_free(rpcTest2);
+    kittycat_string_free(rpcTest3);
+    kittycat_string_free(rpcClaim);
+    kittycat_string_free(rpcStar);
+    kittycat_string_free(NrpcTest);
+    kittycat_string_free(NrpcTest2);
+    kittycat_string_free(NrpcTest3);
+    kittycat_string_free(NrpcClaim);
+    kittycat_string_free(NrpcStar);
+    kittycat_string_free(global_clear);
     __kittycat_ordered_permission_map_free(opm);
 
     return 0;
@@ -399,6 +399,8 @@ int sp_resolve__test()
 
 int main()
 {
+    kittycat_set_allocator(malloc, realloc, free, memcpy);
+
     printf("Running tests: %s...\n", ":)");
 
 #if defined(DECONSTRUCT_kittycat_permission_CHECKS)

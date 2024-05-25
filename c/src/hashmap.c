@@ -4,6 +4,7 @@
 
 // Changes made:
 // - Renamed hashmap to kittycat_hashmap
+// - Changed kittycat_hashmap_set_allocator to also take a realloc function
 
 #include <stdio.h>
 #include <string.h>
@@ -26,9 +27,13 @@ static void (*__free)(void *) = NULL;
 // kittycat_hashmap_set_allocator allows for configuring a custom allocator for
 // all kittycat_hashmap library operations. This function, if needed, should be called
 // only once at startup and a prior to calling kittycat_hashmap_new().
-void kittycat_hashmap_set_allocator(void *(*malloc)(size_t), void (*free)(void *))
+void kittycat_hashmap_set_allocator(
+    void *(*malloc)(size_t),
+    void *(*realloc)(void *, size_t),
+    void (*free)(void *))
 {
     __malloc = malloc;
+    __realloc = realloc;
     __free = free;
 }
 
