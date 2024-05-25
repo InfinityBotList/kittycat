@@ -11,13 +11,13 @@ add_library(kittycat
     src/lib/hashmap.c
     src/lib/kc_string.c
     src/lib/perms.c
-    src/lib/prelude.c
+    src/lib/alloc.c
 )
 set_target_properties(kittycat PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(kittycat PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR})
 set(CMAKE_MODULE_PATH, ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 # configure_file(src/config.h.in src/config.h)
-set_target_properties(kittycat PROPERTIES PUBLIC_HEADER src/lib/prelude.h src/lib/kc_string.h src/lib/perms.h)
+set_target_properties(kittycat PROPERTIES PUBLIC_HEADER "src/lib/alloc.h src/lib/kc_string.h src/lib/perms.h src/lib/hashmap.h")
 include(GNUInstallDirs)
 install(TARGETS kittycat
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

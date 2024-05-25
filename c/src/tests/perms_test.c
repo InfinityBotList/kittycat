@@ -1,4 +1,8 @@
 #include "../lib/perms.h"
+#include "../lib/kc_string.h"
+#include "../lib/alloc.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 #ifdef DEBUG_PRINTF
 #define printff(fmt, ...) printf(fmt, __VA_ARGS__)

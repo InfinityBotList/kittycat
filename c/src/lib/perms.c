@@ -1,8 +1,19 @@
-#define KITTYCAT_H
-
-#include "prelude.h"
 #include "perms.h"
 #include "hashmap.h"
+
+static void *(*__kittycat_malloc)(size_t) = NULL;
+static void *(*__kittycat_realloc)(void *, size_t) = NULL;
+static void (*__kittycat_free)(void *) = NULL;
+
+void kittycat_perms_set_allocator(
+    void *(*malloc)(size_t),
+    void *(*realloc)(void *, size_t),
+    void (*free)(void *))
+{
+    __kittycat_malloc = malloc;
+    __kittycat_realloc = realloc;
+    __kittycat_free = free;
+}
 
 const struct kittycat_string __kittycat_perm_global_ns = {"global", 6, false};
 const struct kittycat_string __kittycat_perm_clear_perm = {"@clear", 6, false};

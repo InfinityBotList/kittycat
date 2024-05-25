@@ -1,7 +1,21 @@
-#define KITTYCAT_H
-
 #include "kc_string.h"
-#include "prelude.h"
+
+static void *(*__kittycat_malloc)(size_t) = NULL;
+static void *(*__kittycat_realloc)(void *, size_t) = NULL;
+static void (*__kittycat_free)(void *) = NULL;
+static void *(*__kittycat_memcpy)(void *, const void *, size_t) = NULL;
+
+void kittycat_kc_string_set_allocator(
+    void *(*malloc)(size_t),
+    void *(*realloc)(void *, size_t),
+    void (*free)(void *),
+    void *(*memcpy)(void *, const void *, size_t))
+{
+    __kittycat_malloc = malloc;
+    __kittycat_realloc = realloc;
+    __kittycat_free = free;
+    __kittycat_memcpy = memcpy;
+}
 
 // Create a new string
 //

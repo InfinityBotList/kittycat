@@ -51,6 +51,11 @@ extern "C"
     const void *kittycat_hashmap_set_with_hash(struct kittycat_hashmap *map, const void *item, uint64_t hash);
     void kittycat_hashmap_set_grow_by_power(struct kittycat_hashmap *map, size_t power);
     void kittycat_hashmap_set_load_factor(struct kittycat_hashmap *map, double load_factor);
+
+    // kittycat_hashmap_set_allocator allows for configuring a custom allocator for
+    // all kittycat_hashmap library operations.
+    //
+    // Note: it is recommended to use kittycat_set_allocator instead
     void kittycat_hashmap_set_allocator(void *(*malloc)(size_t), void *(*realloc)(void *, size_t), void (*free)(void *));
 
 #if defined(__cplusplus)

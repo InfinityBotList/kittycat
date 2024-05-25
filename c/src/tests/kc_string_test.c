@@ -1,4 +1,7 @@
 #include "../lib/kc_string.h"
+#include "../lib/alloc.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 int main()
 {
