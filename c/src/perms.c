@@ -572,15 +572,9 @@ void __kittycat_ordered_permission_map_clear(struct __KittycatOrderedPermissionM
     opm->order = __kittycat_malloc(sizeof(struct KittycatPermission *));
 }
 
-// Resolves the KittycatPermissions of a staff member
-//
-// Note: consumers must free the ordered KittycatPermission map after use
-//
-// For a general purpose function, use `kittycat_staff_permissions_resolve`
-//
-// Note: multi-threaded functions should also use `kittycat_staff_permissions_resolve` which creates the (not-threadsafe) kittycat_hashmap on each invocation
-struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct StaffKittycatPermissions *const sp, struct __KittycatOrderedPermissionMap *opm)
+struct KittycatPermissionList *kittycat_staff_permissions_resolve(const struct StaffKittycatPermissions *const sp)
 {
+    struct __KittycatOrderedPermissionMap *opm = __kittycat_ordered_permission_map_new();
     struct KittycatPartialStaffPositionList *userPositions = kittycat_partial_staff_position_list_new();
 
     for (size_t i = 0; i < sp->user_positions->len; i++)
@@ -764,14 +758,8 @@ struct KittycatPermissionList *__kittycat_staff_permissions_resolve(const struct
     __kittycat_free(userPositions->positions);
     __kittycat_free(userPositions);
 
-    return appliedPerms;
-}
-
-struct KittycatPermissionList *kittycat_staff_permissions_resolve(const struct StaffKittycatPermissions *const sp)
-{
-    struct __KittycatOrderedPermissionMap *opm = __kittycat_ordered_permission_map_new();
-    struct KittycatPermissionList *appliedPerms = __kittycat_staff_permissions_resolve(sp, opm);
     __kittycat_ordered_permission_map_free(opm);
+
     return appliedPerms;
 }
 

@@ -1,4 +1,4 @@
-#include "perms.c"
+#include "perms.h"
 
 #ifdef DEBUG_PRINTF
 #define printff(fmt, ...) printf(fmt, __VA_ARGS__)
@@ -171,9 +171,9 @@ int has_perm__test()
     return 0;
 }
 
-bool sp_resolve_test_impl(struct StaffKittycatPermissions *sp, struct KittycatPermissionList *expected_perms, struct __KittycatOrderedPermissionMap *opm)
+bool sp_resolve_test_impl(struct StaffKittycatPermissions *sp, struct KittycatPermissionList *expected_perms)
 {
-    struct KittycatPermissionList *perms = __kittycat_staff_permissions_resolve(sp, opm);
+    struct KittycatPermissionList *perms = kittycat_staff_permissions_resolve(sp);
 
     struct kittycat_string *expected_perms_str = kittycat_permission_list_join(expected_perms, ", ");
     struct kittycat_string *perms_str = kittycat_permission_list_join(perms, ", ");
@@ -186,14 +186,12 @@ bool sp_resolve_test_impl(struct StaffKittycatPermissions *sp, struct KittycatPe
     kittycat_string_free(expected_perms_str);
     kittycat_string_free(perms_str);
     kittycat_staff_permissions_free(sp);
-    __kittycat_ordered_permission_map_clear(opm); // Clear the OPM for reuse
 
     return res;
 }
 
 int sp_resolve__test()
 {
-    struct __KittycatOrderedPermissionMap *opm = __kittycat_ordered_permission_map_new();
     struct kittycat_string *rpcTest = kittycat_string_new("rpc.test", 8);
     struct kittycat_string *rpcTest2 = kittycat_string_new("rpc.test2", 9);
     struct kittycat_string *rpcTest3 = kittycat_string_new("rpc.test3", 9);
@@ -215,7 +213,7 @@ int sp_resolve__test()
     struct StaffKittycatPermissions *sp = kittycat_staff_permissions_new();
     kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_new_from_str(rpcTest));
 
-    if (!sp_resolve_test_impl(sp, expected, opm))
+    if (!sp_resolve_test_impl(sp, expected))
     {
         return 1;
     }
@@ -230,7 +228,7 @@ int sp_resolve__test()
     sp = kittycat_staff_permissions_new();
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest)}, 1)));
 
-    if (!sp_resolve_test_impl(sp, expected, opm))
+    if (!sp_resolve_test_impl(sp, expected))
     {
         return 1;
     }
@@ -247,7 +245,7 @@ int sp_resolve__test()
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest)}, 1)));
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest2)}, 1)));
 
-    if (!sp_resolve_test_impl(sp, expected, opm))
+    if (!sp_resolve_test_impl(sp, expected))
     {
         return 1;
     }
@@ -265,7 +263,7 @@ int sp_resolve__test()
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcTest), kittycat_permission_new_from_str(rpcTest2)}, 2)));
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(NrpcTest3)}, 2)));
 
-    if (!sp_resolve_test_impl(sp, expected, opm))
+    if (!sp_resolve_test_impl(sp, expected))
     {
         return 1;
     }
@@ -283,7 +281,7 @@ int sp_resolve__test()
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest), kittycat_permission_new_from_str(rpcTest2)}, 2)));
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(rpcTest)}, 2)));
 
-    if (!sp_resolve_test_impl(sp, expected, opm))
+    if (!sp_resolve_test_impl(sp, expected))
     {
         return 1;
     }
@@ -302,7 +300,7 @@ int sp_resolve__test()
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(NrpcTest2)}, 2)));
     kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_new_from_str(rpcTest));
 
-    if (!sp_resolve_test_impl(sp, expected, opm))
+    if (!sp_resolve_test_impl(sp, expected))
     {
         return 1;
     }
@@ -324,7 +322,7 @@ int sp_resolve__test()
     kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_new_from_str(rpcTest2));
     kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_new_from_str(rpcTest3));
 
-    if (!sp_resolve_test_impl(sp, expected, opm))
+    if (!sp_resolve_test_impl(sp, expected))
     {
         return 1;
     }
@@ -340,7 +338,7 @@ int sp_resolve__test()
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcStar)}, 1)));
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(NrpcTest2)}, 2)));
 
-    if (!sp_resolve_test_impl(sp, expected, opm))
+    if (!sp_resolve_test_impl(sp, expected))
     {
         return 1;
     }
@@ -358,7 +356,7 @@ int sp_resolve__test()
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test2", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(NrpcTest3), kittycat_permission_new_from_str(NrpcTest2)}, 2)));
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("test", 2, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcStar)}, 1)));
 
-    if (!sp_resolve_test_impl(sp, expected, opm))
+    if (!sp_resolve_test_impl(sp, expected))
     {
         return 1;
     }
@@ -375,7 +373,7 @@ int sp_resolve__test()
     kittycat_partial_staff_position_list_add(sp->user_positions, kittycat_partial_staff_position_new("reviewer", 1, kittycat_permission_list_new_with_perms((struct KittycatPermission *[]){kittycat_permission_new_from_str(rpcClaim)}, 1)));
     kittycat_permission_list_add(sp->perm_overrides, kittycat_permission_new_from_str(NrpcClaim));
 
-    if (!sp_resolve_test_impl(sp, expected, opm))
+    if (!sp_resolve_test_impl(sp, expected))
     {
         return 1;
     }
@@ -392,7 +390,6 @@ int sp_resolve__test()
     kittycat_string_free(NrpcClaim);
     kittycat_string_free(NrpcStar);
     kittycat_string_free(global_clear);
-    __kittycat_ordered_permission_map_free(opm);
 
     return 0;
 }

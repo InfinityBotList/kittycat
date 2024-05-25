@@ -123,8 +123,6 @@ struct StaffKittycatPermissions *kittycat_staff_permissions_new();
 void kittycat_staff_permissions_free(struct StaffKittycatPermissions *sp);
 
 // Resolves the KittycatPermissions of a staff member
-//
-// For increased efficiency at the cost of no API stability guarantees and loss of thread safety, use the unstable/internal `__kittycat_staff_permissions_resolve`
 struct KittycatPermissionList *kittycat_staff_permissions_resolve(const struct StaffKittycatPermissions *const sp);
 
 // Stores the result of `kittycat_permission_check_patch_changes`

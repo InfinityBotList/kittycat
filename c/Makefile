@@ -32,10 +32,10 @@ tests:
 	${CC} ${CFLAGS_NO_ASAN} src/kc_string_test.c src/prelude.c src/hashmap.c -o out/kc_string_test_no_asan
 	${CC} ${CFLAGS_C99} src/kc_string_test.c src/prelude.c src/hashmap.c -o out/kc_string_test_c99
 	${CC} ${CFLAGS_C99_NO_ASAN} src/kc_string_test.c src/prelude.c src/hashmap.c -o out/kc_string_test_c99_no_asan
-	${CC} ${CFLAGS} src/hashmap.c src/perms_test.c src/kc_string.c src/prelude.c -o out/perms_test
-	${CC} ${CFLAGS_NO_ASAN} src/hashmap.c src/perms_test.c src/kc_string.c src/prelude.c -o out/perms_test_no_asan
-	${CC} ${CFLAGS_C99} src/hashmap.c src/perms_test.c src/kc_string.c src/prelude.c -o out/perms_test_c99
-	${CC} ${CFLAGS_C99_NO_ASAN} src/hashmap.c src/perms_test.c src/kc_string.c src/prelude.c -o out/perms_test_c99_no_asan
+	${CC} ${CFLAGS} src/hashmap.c src/perms.c src/perms_test.c src/kc_string.c src/prelude.c -o out/perms_test
+	${CC} ${CFLAGS_NO_ASAN} src/hashmap.c src/perms.c src/perms_test.c src/kc_string.c src/prelude.c -o out/perms_test_no_asan
+	${CC} ${CFLAGS_C99} src/hashmap.c src/perms.c src/perms_test.c src/kc_string.c src/prelude.c -o out/perms_test_c99
+	${CC} ${CFLAGS_C99_NO_ASAN} src/hashmap.c src/perms.c src/perms_test.c src/kc_string.c src/prelude.c -o out/perms_test_c99_no_asan
 
 	./out/kc_string_test
 	./out/kc_string_test_no_asan
