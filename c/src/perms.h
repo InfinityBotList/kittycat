@@ -25,7 +25,7 @@ struct KittycatPermission *kittycat_new_permission_cloned(struct kittycat_string
 struct KittycatPermission *kittycat_permission_new_from_str(struct kittycat_string *str);
 
 // Converts a permission to its canonical string representation
-char *kittycat_permission_to_str(struct KittycatPermission *p);
+struct kittycat_string *kittycat_permission_to_str(struct KittycatPermission *p);
 
 // Frees the KittycatPermission
 void kittycat_permission_free(struct KittycatPermission *p);

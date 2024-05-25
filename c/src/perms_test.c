@@ -20,12 +20,12 @@ int deconstruct_kittycat_permission__test(char *perm)
     }
     else
     {
-        char *fp = kittycat_permission_to_str(p);
+        struct kittycat_string *fp = kittycat_permission_to_str(p);
         printf("Namespace: %s\n", p->namespace->str);
         printf("Perm: %s\n", p->perm->str);
         printf("Negator: %s\n", p->negator ? "true" : "false");
-        printf("Final KittycatPermission: %s\n", fp);
-        free(fp);
+        printf("Final KittycatPermission: %s\n", fp->str);
+        kittycat_string_free(fp);
     }
 
     kittycat_permission_free(p);
