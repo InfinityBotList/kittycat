@@ -1,3 +1,5 @@
+#define KITTYCAT_H
+
 #include "prelude.h"
 #include "perms.h"
 #include "hashmap.h"

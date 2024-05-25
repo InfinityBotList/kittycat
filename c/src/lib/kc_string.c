@@ -1,3 +1,5 @@
+#define KITTYCAT_H
+
 #include "kc_string.h"
 #include "prelude.h"
 

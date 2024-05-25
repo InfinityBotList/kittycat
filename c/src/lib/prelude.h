@@ -4,10 +4,12 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#ifdef KITTYCAT_H
 void *(*__kittycat_malloc)(size_t);
 void *(*__kittycat_realloc)(void *, size_t);
 void (*__kittycat_free)(void *);
 void *(*__kittycat_memcpy)(void *, const void *, size_t);
+#endif
 
 // kittycat_set_allocator allows for configuring a custom allocator for
 // all kittycat library operations.
