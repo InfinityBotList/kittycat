@@ -143,7 +143,7 @@ void kittycat_string_arr_free(struct kittycat_string **arr, const size_t n)
 
 bool kittycat_string_empty(const struct kittycat_string *const s)
 {
-    return s == NULL || s->len == 0 || s->str == NULL;
+    return !s || s->len == 0 || s->str == NULL;
 }
 
 bool kittycat_string_equal(const struct kittycat_string *const s1, const struct kittycat_string *const s2)
