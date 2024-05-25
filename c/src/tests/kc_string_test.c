@@ -1,4 +1,4 @@
-#include "kc_string.c"
+#include "../lib/kc_string.h"
 
 int main()
 {

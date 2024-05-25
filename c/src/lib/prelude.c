@@ -2,8 +2,6 @@
 #include "prelude.h"
 #include "hashmap.h"
 
-#define KITTYCAT_VERSION "0.1.0"
-
 void *(*__kittycat_malloc)(size_t) = NULL;
 void *(*__kittycat_realloc)(void *, size_t) = NULL;
 void (*__kittycat_free)(void *) = NULL;

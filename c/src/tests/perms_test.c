@@ -1,4 +1,4 @@
-#include "perms.h"
+#include "../lib/perms.h"
 
 #ifdef DEBUG_PRINTF
 #define printff(fmt, ...) printf(fmt, __VA_ARGS__)

@@ -106,7 +106,7 @@ struct kittycat_string *kittycat_string_concat(struct kittycat_string *s1, struc
 void kittycat_string_free(struct kittycat_string *s)
 {
     // Already freed if NULL
-    if (s == NULL)
+    if (!s)
         return;
     if (s->__isCloned)
     {
