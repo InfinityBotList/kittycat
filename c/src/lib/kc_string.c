@@ -156,11 +156,6 @@ bool kittycat_string_equal(const struct kittycat_string *const s1, const struct 
     return strcmp(s1->str, s2->str) == 0;
 }
 
-bool kittycat_string_equal_char(const struct kittycat_string *const s, const char *c, const size_t len)
-{
-    return s->len == len && strcmp(s->str, c) == 0;
-}
-
 bool kittycat_string_contains(const struct kittycat_string *const s, const char c)
 {
     for (size_t i = 0; i < s->len; i++)

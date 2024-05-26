@@ -73,11 +73,6 @@ extern "C"
     // Returns if two strings are equal or not
     bool kittycat_string_equal(const struct kittycat_string *const s1, const struct kittycat_string *const s2);
 
-    // Returns if a string is equal to a char array
-    //
-    // This is faster than naive `strcmp` on the underlying char array as it also equates the lengths of the strings
-    bool kittycat_string_equal_char(const struct kittycat_string *const s, const char *c, const size_t len);
-
     // Returns if a string `s` contains a character `c`
     bool kittycat_string_contains(const struct kittycat_string *const s, const char c);
 

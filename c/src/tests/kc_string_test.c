@@ -35,19 +35,34 @@ int main()
     printf("out2 splits: %d\n", i);
 
     printf("Namespace: %s\n", out2[0]->str);
-    printf("Perm: %s\n", !kittycat_string_empty(out2[1]) ? out2[1]->str : "NULL");
     printf("Is Namespace NULL: %s\n", kittycat_string_empty(out2[0]) ? "true" : "false");
-    printf("Is Perm NULL: %s\n", kittycat_string_empty(out2[1]) ? "true" : "false");
     printf("Namespace Length: %zu\n", out2[0]->len);
-    printf("Perm Length: %zu\n", kittycat_string_empty(out2[1]) ? 0 : out2[1]->len);
+
+    if (i > 1)
+    {
+        printf("ERROR: Expected i == 1\n");
+        printf("======================\n");
+        printf("Perm: %s\n", !kittycat_string_empty(out2[1]) ? out2[1]->str : "NULL");
+        printf("Is Perm NULL: %s\n", kittycat_string_empty(out2[1]) ? "true" : "false");
+        printf("Perm Length: %zu\n", kittycat_string_empty(out2[1]) ? 0 : out2[1]->len);
+        printf("======================\n");
+        printf("ERROR: Expected i == 1\n");
+        return 1;
+    }
 
     // Free s
     kittycat_string_free(s);
 
     struct kittycat_string *s1 = kittycat_string_new("abc", 3);
     struct kittycat_string *s2 = kittycat_string_new("def", 3);
-
     struct kittycat_string *s3 = kittycat_string_concat(s1, s2);
+    struct kittycat_string *s3_expected = kittycat_string_new("abcdef", 6);
+
+    if (!kittycat_string_equal(s3, s3_expected))
+    {
+        printf("ERROR: %s != %s\n", s3->str, s3_expected->str);
+        return 1;
+    }
 
     printf("Concatenated: %s\n", s3->str);
     printf("Concatenated len: %zu\n", s3->len);
@@ -60,4 +75,5 @@ int main()
     kittycat_string_free(s1);
     kittycat_string_free(s2);
     kittycat_string_free(s3);
+    kittycat_string_free(s3_expected);
 }
