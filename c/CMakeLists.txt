@@ -15,10 +15,18 @@ add_library(kittycat
     src/lib/perms.c
     src/lib/alloc.c
 )
+
+# Shared lib config
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+set_target_properties(kittycat PROPERTIES POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS})
+
+# Configure project variables
 set_target_properties(kittycat PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(kittycat PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR})
 set(CMAKE_MODULE_PATH, ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
-# configure_file(src/config.h.in src/config.h)
 set_target_properties(kittycat PROPERTIES PUBLIC_HEADER "src/lib/alloc.h;src/lib/kc_string.h;src/lib/perms.h;src/lib/hashmap.h")
 include(GNUInstallDirs)
 install(TARGETS kittycat
@@ -29,6 +37,7 @@ install(FILES ${CMAKE_BINARY_DIR}/src/lib/kittycat.pc DESTINATION ${CMAKE_INSTAL
 
 # Tests
 enable_testing()
+set(CMAKE_CTEST_ARGUMENTS "--verbose")
 add_executable(kc_string_test
     src/tests/kc_string_test.c
 )

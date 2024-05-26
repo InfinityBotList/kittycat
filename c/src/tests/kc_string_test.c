@@ -24,7 +24,7 @@ int main()
     printf("Perm Length: %zu\n", out[1]->len);
     printf("Is Perm NULL: %s\n", kittycat_string_empty(out[1]) ? "true" : "false");
 
-    kittycat_string_arr_free(out, 2);
+    kittycat_string_arr_free(out, i);
     kittycat_string_free(s);
 
     s = kittycat_string_new("abc", 3);
@@ -56,7 +56,7 @@ int main()
     printf("String contains 'q': %s\n", kittycat_string_contains(s3, 'q') ? "true" : "false");
 
     // Free memory
-    kittycat_string_arr_free(out2, 2);
+    kittycat_string_arr_free(out2, i);
     kittycat_string_free(s1);
     kittycat_string_free(s2);
     kittycat_string_free(s3);
