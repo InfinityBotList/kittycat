@@ -222,7 +222,7 @@ local function has_perm_str(perms: {string}, perm_str: string)
 end
 
 -- Error types
-type CheckPatchChangesError = {
+export type CheckPatchChangesError = {
     type: "NoPermission",
     permission: Permission,
 } | {
