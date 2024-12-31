@@ -191,7 +191,7 @@ function StaffPermissions.resolve(self: StaffPermissions)
 end
 
 -- Helper functions
-function has_perm(perms: {Permission}, perm: Permission)
+local function has_perm(perms: {Permission}, perm: Permission)
     local has_perm_val = nil
     local has_negator = false
     
@@ -212,7 +212,7 @@ function has_perm(perms: {Permission}, perm: Permission)
     return has_perm_val ~= nil and not has_negator
 end
 
-function has_perm_str(perms: {string}, perm_str: string)
+local function has_perm_str(perms: {string}, perm_str: string)
     local perm: Permission = Permission.from_string(perm_str)
     local converted_perms: {Permission} = {}
     for _, p in ipairs(perms) do
@@ -232,8 +232,6 @@ type CheckPatchChangesError = {
 }
 
 local function check_patch_changes(manager_perms: {Permission}, current_perms: {Permission}, new_perms: {Permission}): (boolean, CheckPatchChangesError?)
-    
-    
     -- Find symmetric difference between current_perms and new_perms
     local changed: {Permission} = {}
 
@@ -292,7 +290,7 @@ local function check_patch_changes(manager_perms: {Permission}, current_perms: {
     return true, nil
 end
 
-function check_patch_changes_str(manager_perms: {string}, current_perms: {string}, new_perms: {string})
+local function check_patch_changes_str(manager_perms: {string}, current_perms: {string}, new_perms: {string})
     local converted_manager = {}
     local converted_current = {}
     local converted_new = {}
