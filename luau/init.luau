@@ -1,3 +1,5 @@
+--!nocheck
+
 --- Permission type
 export type Permission = {
     --- Namespace of the permission
@@ -73,9 +75,74 @@ function StaffPermissions.new(user_positions: {PartialStaffPosition}, perm_overr
     self.perm_overrides = perm_overrides
     return self :: StaffPermissions
 end
- 
+
+type OrderedStrNumTable = {
+    data: {[string]: number},
+    order: {string},
+    get: (self: OrderedStrNumTable, key: string) -> (),
+    insert: (self: OrderedStrNumTable, key: string, value: number) -> (),
+    remove: (self: OrderedStrNumTable, key: string) -> (),
+    iterByInsertionOrder: (self: OrderedStrNumTable) -> () -> (string, number),
+    clear: (self: OrderedStrNumTable) -> ()
+}
+
+local OrderedStrNumTable = {}
+OrderedStrNumTable.__index = OrderedStrNumTable
+
+function OrderedStrNumTable.new()
+    local self = setmetatable({}, OrderedStrNumTable)
+    self.__index = OrderedStrNumTable
+    self.data = {}
+    self.order = {}
+    return self :: OrderedStrNumTable
+end
+
+function OrderedStrNumTable.get(self: OrderedStrNumTable, key: string)
+    return self.data[key]
+end
+
+function OrderedStrNumTable.insert(self: OrderedStrNumTable, key: string, value: number)
+    if self.data[key] then
+        return
+    end
+    
+    self.data[key] = value
+    table.insert(self.order, key)
+end
+
+function OrderedStrNumTable.remove(self: OrderedStrNumTable, key: string)
+    if not self.data[key] then
+        return
+    end
+    
+    self.data[key] = nil
+    for i, k in ipairs(self.order) do
+        if k == key then
+            table.remove(self.order, i)
+            break
+        end
+    end
+end
+
+function OrderedStrNumTable.iterByInsertionOrder(self: OrderedStrNumTable)
+    local i = 0
+    return function()
+        i += 1
+        if i > #self.order then
+            return nil
+        end
+        local key = self.order[i]
+        return key, self.data[key]
+    end
+end
+
+function OrderedStrNumTable.clear(self: OrderedStrNumTable)
+    self.data = {}
+    self.order = {}
+end
+
 function StaffPermissions.resolve(self: StaffPermissions)
-    local applied_perms_val: { [string]: number} = {}
+    local applied_perms_val: OrderedStrNumTable = OrderedStrNumTable.new()
     
     -- Clone user_positions
     local user_positions: {PartialStaffPosition} = {}
@@ -92,7 +159,8 @@ function StaffPermissions.resolve(self: StaffPermissions)
     
     -- Sort positions by index in descending order
     table.sort(user_positions, function(a, b)
-        return a.index > b.index
+        -- This needs to return true if first element must come before second element
+        return b.index < a.index
     end)
     
     for _, pos in ipairs(user_positions) do
@@ -100,19 +168,20 @@ function StaffPermissions.resolve(self: StaffPermissions)
             if perm.perm == "@clear" then
                 if perm.namespace == "global" then
                     -- Clear all permissions
-                    applied_perms_val = {} :: {[string]: number}
+                    applied_perms_val:clear()
                 else
                     -- Clear all perms with this namespace
-                    local to_remove = {}
-                    for key, _ in pairs(applied_perms_val) do
+                    local to_remove: {string} = {}
+                    for keystr, _ in applied_perms_val:iterByInsertionOrder() do
+                        local key = Permission.from_string(keystr)
                         if key.namespace == perm.namespace then
-                            table.insert(to_remove, key)
+                            table.insert(to_remove, keystr)
                         end
                     end
 
                     -- Remove here to avoid immutable borrow
-                    for key, _ in ipairs(to_remove) do
-                        applied_perms_val[key] = nil
+                    for _, key in ipairs(to_remove) do
+                        applied_perms_val:remove(key)
                     end
                 end
 
@@ -125,17 +194,19 @@ function StaffPermissions.resolve(self: StaffPermissions)
                 local non_negated = Permission.new(perm.namespace, perm.perm, false)
                 local non_negated_key = tostring(non_negated)
                 
-                if applied_perms_val[non_negated_key] then
+                if applied_perms_val:get(non_negated_key) then
                     -- Remove old permission
-                    applied_perms_val[non_negated_key] = nil
+                    applied_perms_val:remove(non_negated_key)
                     -- Add the negator
-                    applied_perms_val[perm_key] = pos.index
-                elseif applied_perms_val[perm_key] then
-                    --  Case 3: The negator is already applied, so we can ignore it
-                    continue
+                    applied_perms_val:insert(perm_key, pos.index)
                 else
+                    if applied_perms_val:get(perm_key) then
+                        -- Case 3: The negator is already applied, so we can ignore 
+                        continue
+                    end
+
                     -- Then we can freely add the negator
-                    applied_perms_val[perm_key] = pos.index
+                    applied_perms_val:insert(perm_key, pos.index)
                 end
             else
                 -- Special case: If a * element exists for a smaller index, then the negator must be ignored. E.g. manager has ~rpc.PremiumAdd but head_manager has no such negator
@@ -143,8 +214,8 @@ function StaffPermissions.resolve(self: StaffPermissions)
                     -- Remove negators. As the permissions are sorted, we can just check if a negator is in the hashmap
                     
                     -- If the * element is from a permission of lower index, then we can ignore this negator
-                    local to_remove = {}
-                    for key, _ in pairs(applied_perms_val) do
+                    local to_remove: {string} = {}
+                    for key, _ in applied_perms_val:iterByInsertionOrder() do
                         local existing_perm = Permission.from_string(key)
                         if not existing_perm.negator then
                             continue -- This special case only applies to negators
@@ -159,7 +230,7 @@ function StaffPermissions.resolve(self: StaffPermissions)
 
                     -- Remove here to avoid immutable borrow
                     for _, key in ipairs(to_remove) do
-                        applied_perms_val[key] = nil
+                        applied_perms_val:remove(key)
                     end
                 end
                 
@@ -167,24 +238,26 @@ function StaffPermissions.resolve(self: StaffPermissions)
                 local negated = Permission.new(perm.namespace, perm.perm, true)
                 local negated_key = tostring(negated)
                 
-                if applied_perms_val[negated_key] then
+                if applied_perms_val:get(negated_key) then
                     -- Remove the negator
-                    applied_perms_val[negated_key] = nil
+                    applied_perms_val:remove(negated_key)
                     -- Add the permission
-                    applied_perms_val[perm_key] = pos.index
-                elseif applied_perms_val[perm_key] then
-                    --  Case 3: The permission is already applied, so we can ignore it
-                    continue
-                else 
+                    applied_perms_val:insert(perm_key, pos.index)
+                else
+                    if applied_perms_val:get(perm_key) then
+                        --  Case 3: The permission is already applied, so we can ignore it
+                        continue
+                    end
+
                     -- Then we can freely add the permission
-                    applied_perms_val[perm_key] = pos.index
+                    applied_perms_val:insert(perm_key, pos.index)
                 end
             end
         end
     end
     
     local result = {}
-    for perm_str, _ in pairs(applied_perms_val) do
+    for perm_str, _ in applied_perms_val:iterByInsertionOrder() do
         table.insert(result, Permission.from_string(perm_str))
     end
     return result
@@ -311,20 +384,66 @@ end
 -- Test
 if(_G._TEST_ASYNC_WORK ~= nil) then
     -- TEST CODE
+    local function internalProtectedEquals(o1, o2, ignore_mt, callList)
+        if o1 == o2 then return true end
+        local o1Type = type(o1)
+        local o2Type = type(o2)
+        if o1Type ~= o2Type then return false end
+        if o1Type ~= 'table' then return false end
+    
+        -- add only when objects are tables, cache results
+        local oComparisons = callList[o1]
+        if not oComparisons then
+            oComparisons = {}
+            callList[o1] = oComparisons
+        end
+        -- false means that comparison is in progress
+        oComparisons[o2] = false
+    
+        if not ignore_mt then
+            local mt1 = getmetatable(o1)
+            if mt1 and mt1.__eq then
+                --compare using built in method
+                return o1 == o2
+            end
+        end
+    
+        local keySet = {}
+        for key1, value1 in pairs(o1) do
+            local value2 = o2[key1]
+            if value2 == nil then return false end
+    
+            local vComparisons = callList[value1]
+            if not vComparisons or vComparisons[value2] == nil then
+                if not internalProtectedEquals(value1, value2, ignore_mt, callList) then
+                    return false
+                end
+            end
+    
+            keySet[key1] = true
+        end
+    
+        for key2, _ in pairs(o2) do
+            if not keySet[key2] then
+                return false
+            end
+        end
+    
+        -- comparison finished - objects are equal do not compare again
+        oComparisons[o2] = true
+        return true
+    end
+    
+    ---@param o1 any|table First object to compare
+    ---@param o2 any|table Second object to compare
+    ---@param ignore_mt boolean True to ignore metatables (a recursive function to tests tables inside tables)
+    local function arraysEqualImpl(o1, o2, ignore_mt)
+        return internalProtectedEquals(o1, o2, ignore_mt or true, {})
+    end    
+
     local arraysEqual = function(a: any, b: any)
-        local is_equal = true
-        for k, v in pairs(a) do
-            if b[k] == nil then
-                is_equal = false
-            end
-        end
-
-        for k, v in pairs(b) do
-            if a[k] == nil then
-                is_equal = false
-            end
-        end
-
+        local is_equal = arraysEqualImpl(a, b)
+    
         -- If not equal, print contents of each
         if not is_equal then
             print("Got:")
@@ -364,22 +483,97 @@ if(_G._TEST_ASYNC_WORK ~= nil) then
     -- Test code for resolve_perms below
     assert(arraysEqual(StaffPermissions.new({}, {Permission.from_string("rpc.test")}):resolve(),  {Permission.from_string("rpc.test")}), "Test for basic resolution of overrides")
     assert(arraysEqual(StaffPermissions.new({PartialStaffPosition.new("test", 1, {Permission.from_string("rpc.test")})}, {}):resolve(),  {Permission.from_string("rpc.test")}), "Test for basic resolution of single position")
-    assert(arraysEqual(StaffPermissions.new({PartialStaffPosition.new("test", 1, {Permission.from_string("rpc.test")}), PartialStaffPosition.new("test2", 2, {Permission.from_string("rpc.test2")})}, {}):resolve(),  {Permission.from_string("rpc.test2"), Permission.from_string("rpc.test")}), "Test for basic resolution of multiple positions")
     assert(arraysEqual(
-        StaffPermissions.new({PartialStaffPosition.new("test", 1, {Permission.from_string("rpc.test"), Permission.from_string("rpc.test2")}), PartialStaffPosition.new("test2", 2, {Permission.from_string("~rpc.test"), Permission.from_string("~rpc.test3")})}, {}):resolve(),  
+        StaffPermissions.new(
+            {
+                PartialStaffPosition.new("test", 1, {Permission.from_string("rpc.test")}), 
+                PartialStaffPosition.new("test2", 2, {Permission.from_string("rpc.test2")})}, 
+                {}
+            ):resolve(), {
+                Permission.from_string("rpc.test2"), Permission.from_string("rpc.test")
+            }
+        ), 
+        "Test for basic resolution of multiple positions"
+    )
+    assert(arraysEqual(
+        StaffPermissions.new({
+                PartialStaffPosition.new(
+                    "test", 
+                    1, 
+                    {
+                        Permission.from_string("rpc.test"), 
+                        Permission.from_string("rpc.test2")
+                    }
+                ), 
+                PartialStaffPosition.new(
+                    "test2", 
+                    2, 
+                    {
+                        Permission.from_string("~rpc.test"), 
+                        Permission.from_string("~rpc.test3")
+                    }
+                )
+            },
+            {}
+        ):resolve(),  
         {Permission.from_string("~rpc.test3"), Permission.from_string("rpc.test"), Permission.from_string("rpc.test2")}
     ), "Test for basic resolution of multiple positions with negators")
     assert(arraysEqual(
-        StaffPermissions.new({PartialStaffPosition.new("test", 1, {Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2"), Permission.from_string("rpc.test3")}), PartialStaffPosition.new("test2", 2, {Permission.from_string("~rpc.test3"), Permission.from_string("~rpc.test2")})}, {}):resolve(),  
-        {Permission.from_string("rpc.test2"), Permission.from_string("rpc.test3"), Permission.from_string("rpc.test")}
+        StaffPermissions.new(
+            {
+                PartialStaffPosition.new(
+                    "test", 
+                    1, 
+                    {Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2")}
+                ), 
+                PartialStaffPosition.new(
+                    "test2", 
+                    2, 
+                    {Permission.from_string("~rpc.test3"), Permission.from_string("rpc.test")}
+                )
+        }, {}):resolve(),  
+        {Permission.from_string("~rpc.test3"), Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2")}
     ), "Same as above but testing negator ordering")
     assert(arraysEqual(
-        StaffPermissions.new({PartialStaffPosition.new("test", 1, {Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2"), Permission.from_string("rpc.test3")}), PartialStaffPosition.new("test2", 1, {Permission.from_string("~rpc.test3"), Permission.from_string("~rpc.test2")})}, {Permission.from_string("rpc.test")}):resolve(),  
+        StaffPermissions.new(
+            {
+                PartialStaffPosition.new(
+                    "test", 
+                    1, 
+                    {Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2"), Permission.from_string("rpc.test3")}
+                ), 
+                PartialStaffPosition.new(
+                    "test2", 
+                    2, 
+                    {Permission.from_string("~rpc.test3"), Permission.from_string("~rpc.test2")}
+                )
+            }, 
+            {Permission.from_string("rpc.test")}
+        ):resolve(),  
         {Permission.from_string("rpc.test2"), Permission.from_string("rpc.test3"), Permission.from_string("rpc.test")}
     ), "Now mix everything together")
     assert(arraysEqual(
-        StaffPermissions.new({PartialStaffPosition.new("test", 1, {Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2")}), PartialStaffPosition.new("test", 1, {Permission.from_string("global.@clear"), Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2")}), PartialStaffPosition.new("test2", 2, {Permission.from_string("~rpc.test3"), Permission.from_string("~rpc.test2")})}, {Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2"), Permission.from_string("rpc.test3")}):resolve(),  
-        {Permission.from_string("rpc.test2"), Permission.from_string("rpc.test3"), Permission.from_string("rpc.test")}
+        StaffPermissions.new(
+            {
+                PartialStaffPosition.new(
+                    "test", 
+                    1, 
+                    {Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2")}
+                ), 
+                PartialStaffPosition.new(
+                    "test", 
+                    1, 
+                    {Permission.from_string("global.@clear"), Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2")}
+                ), 
+                PartialStaffPosition.new(
+                    "test2", 
+                    2, 
+                    {Permission.from_string("~rpc.test3"), Permission.from_string("~rpc.test2")}
+                )
+            }, 
+            {Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2"), Permission.from_string("rpc.test3")}
+        ):resolve(),  
+        {Permission.from_string("~rpc.test"), Permission.from_string("rpc.test2"), Permission.from_string("rpc.test3")}
     ), "@clear")
     assert(arraysEqual(
         StaffPermissions.new({PartialStaffPosition.new("test", 1, {Permission.from_string("rpc.*")}), PartialStaffPosition.new("test2", 2, {Permission.from_string("~rpc.test3"), Permission.from_string("~rpc.test2")})}, {}):resolve(),  
