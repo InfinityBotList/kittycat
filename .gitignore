@@ -1,0 +1,9 @@
+/**/target
+/**/modules.xml
+/**/workspace.xml
+/**/.idea/
+/**/kittycat.iml
+/**/vcs.xml
+/ts/node_modules
+/ts/dist
+.vscode
